@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DocumentUploader from '../components/upload/DocumentUploader';
 import ProcessingStatus from '../components/upload/ProcessingStatus';
 import api from '../services/api';
+import axios from 'axios';
 import { type Client, type Interviewer, type ClientRequirement } from '../types';
 
 const UploadPage: React.FC = () => {
@@ -80,6 +81,28 @@ const UploadPage: React.FC = () => {
         } catch (e) { console.error(e); }
     };
 
+    const uploadToS3 = async (file: File, folder: string) => {
+        try {
+            // 1. Get Presigned URL
+            const { data: { uploadUrl, key } } = await api.post('/upload/presigned', {
+                filename: file.name,
+                contentType: file.type,
+                folder
+            });
+
+            // 2. Upload directly to S3
+            // We use a clean axios call to avoid our instance's default headers
+            await axios.put(uploadUrl, file, {
+                headers: { 'Content-Type': file.type }
+            });
+
+            return key;
+        } catch (e) {
+            console.error(`S3 Upload Error (${folder}):`, e);
+            throw new Error(`Failed to upload ${folder} file`);
+        }
+    };
+
     const handleProcess = async () => {
         if (!candidateName || !candidateRole) {
             alert("Please fill in candidate details");
@@ -93,7 +116,7 @@ const UploadPage: React.FC = () => {
         }
 
         setStatus('uploading');
-        setStatusMsg('Creating records and uploading...');
+        setStatusMsg('Creating records and uploading documents...');
 
         try {
             let finalClientId = selectedClient;
@@ -118,37 +141,46 @@ const UploadPage: React.FC = () => {
                 finalIntId = iRes.data.id;
             }
 
-            // Prepare Upload
-            const formData = new FormData();
+            // 4. Upload Files to S3 if they exist
+            let notesKey, scoresKey, feedbackKey;
 
-            const metadata = {
+            if (notesFile) {
+                setStatusMsg('Uploading interview notes...');
+                notesKey = await uploadToS3(notesFile, 'notes');
+            }
+            if (scoresFile) {
+                setStatusMsg('Uploading candidate scores...');
+                scoresKey = await uploadToS3(scoresFile, 'scores');
+            }
+            if (feedbackFile) {
+                setStatusMsg('Uploading client feedback...');
+                feedbackKey = await uploadToS3(feedbackFile, 'feedback');
+            }
+
+            // 5. Trigger Processing
+            setStatus('processing');
+            setStatusMsg('Analyzing gaps with GPT-4o mini...');
+
+            const payload = {
                 client_requirement_id: finalReqId,
                 interviewer_id: finalIntId,
                 candidate_name: candidateName,
                 role: candidateRole,
                 interview_date: interviewDate,
-                is_accepted: isAccepted
+                is_accepted: isAccepted,
+
+                // S3 Keys
+                notes_key: notesKey,
+                scores_key: scoresKey,
+                feedback_key: feedbackKey,
+
+                // Fallback text
+                notes_text: notesText,
+                scores_text: scoresText,
+                feedback_text: feedbackText
             };
 
-            formData.append('candidate_data', JSON.stringify(metadata));
-
-            if (notesFile) formData.append('notes_file', notesFile);
-            if (notesText) formData.append('notes_text', notesText);
-
-            if (scoresFile) formData.append('scores_file', scoresFile);
-            if (scoresText) formData.append('scores_text', scoresText);
-
-            if (feedbackFile) formData.append('feedback_file', feedbackFile);
-            if (feedbackText) formData.append('feedback_text', feedbackText);
-
-            setStatus('processing');
-            setStatusMsg('Analyzing document contents and gaps...');
-
-            const processRes = await api.post('/upload/process', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const processRes = await api.post('/upload/process', payload);
 
             setAnalysisResult(processRes.data.gaps);
             setStatus('success');
@@ -157,7 +189,7 @@ const UploadPage: React.FC = () => {
         } catch (e: any) {
             console.error(e);
             setStatus('error');
-            setStatusMsg(e.response?.data?.detail || e.message || 'Unknown error');
+            setStatusMsg(e.response?.data?.error || e.message || 'Unknown error');
         }
     };
 
