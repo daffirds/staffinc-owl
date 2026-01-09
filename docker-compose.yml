@@ -1,0 +1,30 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://admin:localdev@db:5432/recruitment
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_S3_BUCKET=recruitment-docs
+      # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY should be passed from host env
+      # OPENAI_API_KEY will be loaded from host env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: recruitment
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: localdev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
