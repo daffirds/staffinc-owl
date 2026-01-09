@@ -12,7 +12,7 @@ interface GapAnalysisResult {
 
 class LLMService {
     private client: OpenAI | null = null;
-    private model: string = 'gpt-4o';
+    private model: string = 'gpt-4o-mini';
 
     constructor() {
         const apiKey = process.env.OPENAI_API_KEY;
@@ -48,6 +48,35 @@ class LLMService {
         }
     }
 
+    async extractTextFromImage(imageUrl: string): Promise<string> {
+        if (!this.client) return '';
+
+        try {
+            const response = await this.client.chat.completions.create({
+                model: this.model,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: 'Transcribe the text in this image exactly as it appears. Return only the raw text.' },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: imageUrl,
+                                    detail: 'high'
+                                },
+                            },
+                        ],
+                    },
+                ],
+            });
+            return response.choices[0]?.message?.content || '';
+        } catch (error) {
+            console.error('LLM Vision Error:', error);
+            return '';
+        }
+    }
+
     async normalizeInternalNotes(text: string): Promise<string> {
         const prompt = `
       Summarize and standardize these recruitment interview notes. 
@@ -55,7 +84,7 @@ class LLMService {
       Return JSON: { "summary": "..." }
       
       Notes:
-      ${text.slice(0, 4000)}
+      ${text.slice(0, 16000)}
     `;
 
         const result = await this.getJsonResponse<{ summary?: string }>(prompt);
@@ -70,7 +99,7 @@ class LLMService {
       If no score found for a category, omit it.
       
       Document Content:
-      ${text.slice(0, 4000)}
+      ${text.slice(0, 16000)}
     `;
 
         return this.getJsonResponse<Record<string, number>>(prompt);
@@ -83,7 +112,7 @@ class LLMService {
       Return JSON: { "summary": "..." }
       
       Feedback:
-      ${text.slice(0, 4000)}
+      ${text.slice(0, 16000)}
     `;
 
         const result = await this.getJsonResponse<{ summary?: string }>(prompt);
