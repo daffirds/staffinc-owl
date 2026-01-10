@@ -1,11 +1,5 @@
+import api from '../services/api';
 import axios from 'axios';
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_APP_URL || 'http://localhost:3000',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
 
 // Types
 export interface MetricsOverview {
@@ -98,7 +92,7 @@ export const fetchMetricsOverview = async (filters?: { clientId?: string; startD
   if (filters?.clientId) params.append('clientId', filters.clientId);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
-  
+
   const { data } = await api.get(`/metrics/overview?${params.toString()}`);
   return data;
 };
@@ -116,7 +110,7 @@ export const fetchCandidatesByMetric = async (
   if (filters?.clientId) params.append('clientId', filters.clientId);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
-  
+
   const { data } = await api.get(`/metrics/candidates?${params.toString()}`);
   return data;
 };
