@@ -20,9 +20,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         };
     }
 
+    const method = (event as any).requestContext?.http?.method || event.httpMethod || 'GET';
     const path = event.path || (event as any).rawPath || '';
-    const isPath = (suffix: string) => path.endsWith(suffix);
-    const hasPath = (segment: string) => path.includes(segment);
+
+    console.log(`[Router] Method: ${method}, Path: ${path}`);
+
+    // Helper to match path (handles potential stage prefixes like /prod/clients)
+    const isPath = (suffix: string) => {
+        const cleanPath = path.toLowerCase().replace(/\/+$/, '') || '/';
+        const cleanSuffix = suffix.toLowerCase().replace(/\/+$/, '') || '/';
+        return cleanPath === cleanSuffix || cleanPath.endsWith(cleanSuffix);
+    };
+    const hasPath = (segment: string) => path.toLowerCase().includes(segment.toLowerCase());
 
     // --- HEALTH CHECK ---
     if (path === '/' || path === '') {

@@ -12,14 +12,14 @@ class AWSService {
     private bucketName: string;
 
     constructor() {
-        const region = process.env.AWS_DEFAULT_REGION || 'us-east-1';
+        const region = process.env.AWS_DEFAULT_REGION || 'ap-southeast-1';
 
         // AWS SDK v3 automatically looks for credentials in env vars or IAM roles
         this.s3Client = new S3Client({
             region,
         });
 
-        this.bucketName = process.env.AWS_S3_BUCKET || 'recruitment-docs';
+        this.bucketName = process.env.AWS_S3_BUCKET || '';
     }
 
     /**

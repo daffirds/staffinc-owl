@@ -4,11 +4,18 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
     try {
-        const { httpMethod, path, queryStringParameters, body } = event;
+        const method = (event as any).requestContext?.http?.method || event.httpMethod || 'GET';
+        const path = event.path || (event as any).rawPath || '';
+        console.log(`[Setup] Method: ${method}, Path: ${path}`);
+        const { queryStringParameters, body } = event;
         const jsonBody = body ? JSON.parse(body) : {};
 
         // Helper to match path (ignores leading slash and stage if present)
-        const isPath = (suffix: string) => path.endsWith(suffix);
+        const isPath = (suffix: string) => {
+            const cleanPath = path.toLowerCase().replace(/\/+$/, '') || '/';
+            const cleanSuffix = suffix.toLowerCase().replace(/\/+$/, '') || '/';
+            return cleanPath === cleanSuffix || cleanPath.endsWith(cleanSuffix);
+        };
 
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
@@ -17,7 +24,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // --- Clients ---
         if (isPath('/clients')) {
-            if (httpMethod === 'POST') {
+            if (method === 'POST') {
                 const { name } = jsonBody;
                 const id = uuidv4();
                 const result = await pool.query(
@@ -30,7 +37,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                     body: JSON.stringify(result.rows[0]),
                 };
             }
-            if (httpMethod === 'GET') {
+            if (method === 'GET') {
                 const skip = parseInt(queryStringParameters?.skip || '0');
                 const limit = parseInt(queryStringParameters?.limit || '100');
                 const result = await pool.query(
@@ -47,7 +54,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // --- Interviewers ---
         if (isPath('/interviewers')) {
-            if (httpMethod === 'POST') {
+            if (method === 'POST') {
                 const { name } = jsonBody;
                 const id = uuidv4();
                 const result = await pool.query(
@@ -60,7 +67,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                     body: JSON.stringify(result.rows[0]),
                 };
             }
-            if (httpMethod === 'GET') {
+            if (method === 'GET') {
                 const skip = parseInt(queryStringParameters?.skip || '0');
                 const limit = parseInt(queryStringParameters?.limit || '100');
                 const result = await pool.query(
@@ -77,7 +84,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // --- Client Requirements ---
         if (isPath('/requirements')) {
-            if (httpMethod === 'POST') {
+            if (method === 'POST') {
                 const { client_id, role_title, raw_content, standardized_requirements } = jsonBody;
                 const id = uuidv4();
                 const result = await pool.query(
@@ -92,7 +99,7 @@ VALUES($1, $2, $3, $4, $5) RETURNING * `,
                     body: JSON.stringify(result.rows[0]),
                 };
             }
-            if (httpMethod === 'GET') {
+            if (method === 'GET') {
                 const clientId = queryStringParameters?.client_id;
                 const skip = parseInt(queryStringParameters?.skip || '0');
                 const limit = parseInt(queryStringParameters?.limit || '100');

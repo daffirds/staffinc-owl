@@ -3,10 +3,17 @@ import pool from '../config/database';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
     try {
-        const { path, queryStringParameters } = event;
+        const method = (event as any).requestContext?.http?.method || event.httpMethod || 'GET';
+        const path = event.path || (event as any).rawPath || '';
+        console.log(`[Metrics] Method: ${method}, Path: ${path}`);
+        const { queryStringParameters } = event;
 
         // Helper to match path
-        const isPath = (suffix: string) => path.endsWith(suffix);
+        const isPath = (suffix: string) => {
+            const cleanPath = path.toLowerCase().replace(/\/+$/, '') || '/';
+            const cleanSuffix = suffix.toLowerCase().replace(/\/+$/, '') || '/';
+            return cleanPath === cleanSuffix || cleanPath.endsWith(cleanSuffix);
+        };
 
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',

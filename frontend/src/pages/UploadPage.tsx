@@ -1,377 +1,463 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import DocumentUploader from '../components/upload/DocumentUploader';
-import ProcessingStatus from '../components/upload/ProcessingStatus';
-import api from '../services/api';
-import axios from 'axios';
-import { type Client, type Interviewer, type ClientRequirement } from '../types';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import EntityCombobox from '@/components/upload/EntityCombobox';
+import FileTextToggle from '@/components/upload/FileTextToggle';
+import {
+  CreateClientDialog,
+  CreateRequirementDialog,
+  CreateInterviewerDialog,
+} from '@/components/upload/CreateEntityDialogs';
+import { useProcessing } from '@/contexts/ProcessingContext';
+import { useToast } from '@/hooks/use-toast';
+import {
+  fetchClients,
+  fetchRequirements,
+  fetchInterviewers,
+  createClient,
+  createRequirement,
+  createInterviewer,
+  getPresignedUrl,
+  uploadToS3,
+  processUpload,
+} from '@/lib/api';
 
-const UploadPage: React.FC = () => {
-    const navigate = useNavigate();
+const UploadPage = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { startProcessing, completeProcessing } = useProcessing();
+  const { toast } = useToast();
 
-    // Data State
-    const [clients, setClients] = useState<Client[]>([]);
-    const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
-    const [requirements, setRequirements] = useState<ClientRequirement[]>([]);
+  // Form state
+  const [candidateName, setCandidateName] = useState('');
+  const [appliedRole, setAppliedRole] = useState('');
+  const [interviewDate, setInterviewDate] = useState<Date>();
+  const [finalStatus, setFinalStatus] = useState<'accepted' | 'rejected'>();
+  const [selectedClient, setSelectedClient] = useState('');
+  const [selectedRequirement, setSelectedRequirement] = useState('');
+  const [selectedInterviewer, setSelectedInterviewer] = useState('');
 
-    // Form State
-    const [selectedClient, setSelectedClient] = useState<string>('');
-    const [newClientName, setNewClientName] = useState('');
+  // File/Text state
+  const [notesFile, setNotesFile] = useState<File | null>(null);
+  const [notesText, setNotesText] = useState('');
+  const [scoresFile, setScoresFile] = useState<File | null>(null);
+  const [scoresText, setScoresText] = useState('');
+  const [feedbackFile, setFeedbackFile] = useState<File | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
 
-    const [selectedReq, setSelectedReq] = useState<string>('');
-    const [newReqRole, setNewReqRole] = useState('');
-    const [newReqText, setNewReqText] = useState('');
+  // Dialog state
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [createRequirementOpen, setCreateRequirementOpen] = useState(false);
+  const [createInterviewerOpen, setCreateInterviewerOpen] = useState(false);
 
-    const [selectedInterviewer, setSelectedInterviewer] = useState<string>('');
-    const [newInterviewerName, setNewInterviewerName] = useState('');
+  // Queries
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: fetchClients,
+  });
 
-    const [candidateName, setCandidateName] = useState('');
-    const [candidateRole, setCandidateRole] = useState('');
-    const [interviewDate, setInterviewDate] = useState(new Date().toISOString().split('T')[0]);
-    const [isAccepted, setIsAccepted] = useState(false);
+  const { data: requirements = [] } = useQuery({
+    queryKey: ['requirements', selectedClient],
+    queryFn: () => fetchRequirements(selectedClient || undefined),
+    enabled: !!selectedClient,
+  });
 
-    // Files State
-    const [notesFile, setNotesFile] = useState<File | null>(null);
-    const [notesText, setNotesText] = useState('');
+  const { data: interviewers = [] } = useQuery({
+    queryKey: ['interviewers'],
+    queryFn: fetchInterviewers,
+  });
 
-    const [scoresFile, setScoresFile] = useState<File | null>(null);
-    const [scoresText, setScoresText] = useState('');
+  // Mutations
+  const createClientMutation = useMutation({
+    mutationFn: createClient,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setSelectedClient(data.id);
+      setCreateClientOpen(false);
+      toast({ title: 'Client created successfully' });
+    },
+  });
 
-    const [feedbackFile, setFeedbackFile] = useState<File | null>(null);
-    const [feedbackText, setFeedbackText] = useState('');
+  const createRequirementMutation = useMutation({
+    mutationFn: async (data: { title: string; file: File | null; text: string }) => {
+      let documentKey: string | undefined;
+      if (data.file) {
+        const presigned = await getPresignedUrl(data.file.name, data.file.type);
+        await uploadToS3(presigned.uploadUrl, data.file);
+        documentKey = presigned.key;
+      }
+      return createRequirement({
+        title: data.title,
+        clientId: selectedClient,
+        documentKey,
+        documentText: data.text || undefined,
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['requirements'] });
+      setSelectedRequirement(data.id);
+      setCreateRequirementOpen(false);
+      toast({ title: 'Requirement created successfully' });
+    },
+  });
 
-    // Processing State
-    const [status, setStatus] = useState<'idle' | 'uploading' | 'processing' | 'success' | 'error'>('idle');
-    const [statusMsg, setStatusMsg] = useState('');
-    const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const createInterviewerMutation = useMutation({
+    mutationFn: createInterviewer,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['interviewers'] });
+      setSelectedInterviewer(data.id);
+      setCreateInterviewerOpen(false);
+      toast({ title: 'Interviewer added successfully' });
+    },
+  });
 
-    // Load Initial Data
-    useEffect(() => {
-        fetchClients();
-        fetchInterviewers();
-    }, []);
+  // Submit handler
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Use Effect to load requirements when client changes
-    useEffect(() => {
-        if (selectedClient && selectedClient !== 'new') {
-            fetchRequirements(selectedClient);
-        } else {
-            setRequirements([]);
-        }
-    }, [selectedClient]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const fetchClients = async () => {
-        try {
-            const res = await api.get('/clients');
-            setClients(res.data);
-        } catch (e) { console.error(e); }
-    };
+    if (!candidateName || !appliedRole || !interviewDate || !finalStatus) {
+      toast({ title: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
 
-    const fetchInterviewers = async () => {
-        try {
-            const res = await api.get('/interviewers');
-            setInterviewers(res.data);
-        } catch (e) { console.error(e); }
-    };
+    if (!selectedClient || !selectedRequirement || !selectedInterviewer) {
+      toast({ title: 'Please select client, requirement, and interviewer', variant: 'destructive' });
+      return;
+    }
 
-    const fetchRequirements = async (clientId: string) => {
-        try {
-            const res = await api.get(`/requirements?client_id=${clientId}`);
-            setRequirements(res.data);
-        } catch (e) { console.error(e); }
-    };
+    if ((!notesFile && !notesText) || (!scoresFile && !scoresText) || (!feedbackFile && !feedbackText)) {
+      toast({ title: 'Please provide all three evaluation inputs', variant: 'destructive' });
+      return;
+    }
 
-    const uploadToS3 = async (file: File, folder: string) => {
-        try {
-            // 1. Get Presigned URL
-            const { data: { uploadUrl, key } } = await api.post('/upload/presigned', {
-                filename: file.name,
-                contentType: file.type,
-                folder
-            });
+    setIsSubmitting(true);
+    startProcessing(candidateName);
 
-            // 2. Upload directly to S3
-            // We use a clean axios call to avoid our instance's default headers
-            await axios.put(uploadUrl, file, {
-                headers: { 'Content-Type': file.type }
-            });
+    try {
+      // Upload files and get keys
+      let internalNotesKey: string | undefined;
+      let candidateScoresKey: string | undefined;
+      let clientFeedbackKey: string | undefined;
 
-            return key;
-        } catch (e) {
-            console.error(`S3 Upload Error (${folder}):`, e);
-            throw new Error(`Failed to upload ${folder} file`);
-        }
-    };
+      if (notesFile) {
+        const presigned = await getPresignedUrl(notesFile.name, notesFile.type);
+        await uploadToS3(presigned.uploadUrl, notesFile);
+        internalNotesKey = presigned.key;
+      }
 
-    const handleProcess = async () => {
-        if (!candidateName || !candidateRole) {
-            alert("Please fill in candidate details");
-            return;
-        }
+      if (scoresFile) {
+        const presigned = await getPresignedUrl(scoresFile.name, scoresFile.type);
+        await uploadToS3(presigned.uploadUrl, scoresFile);
+        candidateScoresKey = presigned.key;
+      }
 
-        // Check mandatory uploads/texts
-        if ((!notesFile && !notesText) || (!scoresFile && !scoresText) || (!feedbackFile && !feedbackText)) {
-            alert("Please provide all 3 required documents (Notes, Scores, Feedback)");
-            return;
-        }
+      if (feedbackFile) {
+        const presigned = await getPresignedUrl(feedbackFile.name, feedbackFile.type);
+        await uploadToS3(presigned.uploadUrl, feedbackFile);
+        clientFeedbackKey = presigned.key;
+      }
 
-        setStatus('uploading');
-        setStatusMsg('Creating records and uploading documents...');
+      // Process upload
+      await processUpload({
+        candidateName,
+        appliedRole,
+        interviewDate: interviewDate.toISOString().split('T')[0],
+        finalStatus,
+        clientId: selectedClient,
+        requirementId: selectedRequirement,
+        interviewerId: selectedInterviewer,
+        internalNotesKey,
+        internalNotesText: notesText || undefined,
+        candidateScoresKey,
+        candidateScoresText: scoresText || undefined,
+        clientFeedbackKey,
+        clientFeedbackText: feedbackText || undefined,
+      });
 
-        try {
-            let finalClientId = selectedClient;
-            if (selectedClient === 'new') {
-                const cRes = await api.post('/clients', { name: newClientName });
-                finalClientId = cRes.data.id;
-            }
+      completeProcessing();
+      toast({ title: 'Evaluation submitted successfully!' });
+      
+      // Reset form
+      setCandidateName('');
+      setAppliedRole('');
+      setInterviewDate(undefined);
+      setFinalStatus(undefined);
+      setSelectedClient('');
+      setSelectedRequirement('');
+      setSelectedInterviewer('');
+      setNotesFile(null);
+      setNotesText('');
+      setScoresFile(null);
+      setScoresText('');
+      setFeedbackFile(null);
+      setFeedbackText('');
 
-            let finalReqId = selectedReq;
-            if (selectedReq === 'new') {
-                const rRes = await api.post('/requirements', {
-                    client_id: finalClientId,
-                    role_title: newReqRole,
-                    raw_content: newReqText
-                });
-                finalReqId = rRes.data.id;
-            }
+      // Optionally navigate
+      // navigate('/');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast({ title: 'Upload failed. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-            let finalIntId = selectedInterviewer;
-            if (selectedInterviewer === 'new') {
-                const iRes = await api.post('/interviewers', { name: newInterviewerName });
-                finalIntId = iRes.data.id;
-            }
+  const selectedClientName = clients.find(c => c.id === selectedClient)?.name;
 
-            // 4. Upload Files to S3 if they exist
-            let notesKey, scoresKey, feedbackKey;
-
-            if (notesFile) {
-                setStatusMsg('Uploading interview notes...');
-                notesKey = await uploadToS3(notesFile, 'notes');
-            }
-            if (scoresFile) {
-                setStatusMsg('Uploading candidate scores...');
-                scoresKey = await uploadToS3(scoresFile, 'scores');
-            }
-            if (feedbackFile) {
-                setStatusMsg('Uploading client feedback...');
-                feedbackKey = await uploadToS3(feedbackFile, 'feedback');
-            }
-
-            // 5. Trigger Processing
-            setStatus('processing');
-            setStatusMsg('Analyzing gaps with GPT-4o mini...');
-
-            const payload = {
-                client_requirement_id: finalReqId,
-                interviewer_id: finalIntId,
-                candidate_name: candidateName,
-                role: candidateRole,
-                interview_date: interviewDate,
-                is_accepted: isAccepted,
-
-                // S3 Keys
-                notes_key: notesKey,
-                scores_key: scoresKey,
-                feedback_key: feedbackKey,
-
-                // Fallback text
-                notes_text: notesText,
-                scores_text: scoresText,
-                feedback_text: feedbackText
-            };
-
-            const processRes = await api.post('/upload/process', payload);
-
-            setAnalysisResult(processRes.data.gaps);
-            setStatus('success');
-            setStatusMsg('Analysis Complete');
-
-        } catch (e: any) {
-            console.error(e);
-            setStatus('error');
-            setStatusMsg(e.response?.data?.error || e.message || 'Unknown error');
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">Process New Candidate</h1>
-
-            {/* 1. Candidate Info Card */}
-            <div className="bg-white p-6 rounded-lg border border-border shadow-sm mb-8">
-                <h2 className="text-lg font-semibold mb-4 border-b pb-2">Candidate Information</h2>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Candidate Name</label>
-                        <input
-                            className="w-full p-2 border border-border rounded"
-                            value={candidateName}
-                            onChange={e => setCandidateName(e.target.value)}
-                            placeholder="e.g. John Doe"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Applied Role</label>
-                        <input
-                            className="w-full p-2 border border-border rounded"
-                            value={candidateRole}
-                            onChange={e => setCandidateRole(e.target.value)}
-                            placeholder="e.g. Backend Engineer"
-                        />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Client</label>
-                        <select
-                            className="w-full p-2 border border-border rounded"
-                            value={selectedClient}
-                            onChange={e => { setSelectedClient(e.target.value); setSelectedReq(''); }}
-                        >
-                            <option value="">Select Client...</option>
-                            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            <option value="new">+ Create New Client</option>
-                        </select>
-                        {selectedClient === 'new' && (
-                            <input
-                                className="mt-2 w-full p-2 border border-border rounded bg-surface"
-                                placeholder="New Client Name"
-                                value={newClientName}
-                                onChange={e => setNewClientName(e.target.value)}
-                            />
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Role Requirement</label>
-                        <select
-                            className="w-full p-2 border border-border rounded"
-                            value={selectedReq}
-                            onChange={e => setSelectedReq(e.target.value)}
-                            disabled={!selectedClient || selectedClient === 'new'}
-                        >
-                            <option value="">Select Requirement...</option>
-                            {requirements.map(r => <option key={r.id} value={r.id}>{r.role_title}</option>)}
-                            <option value="new">+ Create New Requirement</option>
-                        </select>
-                        {selectedReq === 'new' && (
-                            <div className="mt-2 space-y-2">
-                                <input
-                                    className="w-full p-2 border border-border rounded bg-surface"
-                                    placeholder="Role Title (e.g. Sr Dev)"
-                                    value={newReqRole}
-                                    onChange={e => setNewReqRole(e.target.value)}
-                                />
-                                <textarea
-                                    className="w-full p-2 border border-border rounded bg-surface text-sm"
-                                    placeholder="Paste requirements text..."
-                                    value={newReqText}
-                                    onChange={e => setNewReqText(e.target.value)}
-                                    rows={2}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Interviewer</label>
-                        <select
-                            className="w-full p-2 border border-border rounded"
-                            value={selectedInterviewer}
-                            onChange={e => setSelectedInterviewer(e.target.value)}
-                        >
-                            <option value="">Select Interviewer...</option>
-                            {interviewers.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                            <option value="new">+ Create New Interviewer</option>
-                        </select>
-                        {selectedInterviewer === 'new' && (
-                            <input
-                                className="mt-2 w-full p-2 border border-border rounded bg-surface"
-                                placeholder="New Interviewer Name"
-                                value={newInterviewerName}
-                                onChange={e => setNewInterviewerName(e.target.value)}
-                            />
-                        )}
-                    </div>
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium mb-1">Interview Date</label>
-                            <input
-                                type="date"
-                                className="w-full p-2 border border-border rounded"
-                                value={interviewDate}
-                                onChange={e => setInterviewDate(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium mb-1">Final Status</label>
-                            <div className="flex gap-2 p-2">
-                                <label className="flex items-center gap-1 cursor-pointer">
-                                    <input type="radio" checked={isAccepted} onChange={() => setIsAccepted(true)} /> Accepted
-                                </label>
-                                <label className="flex items-center gap-1 cursor-pointer">
-                                    <input type="radio" checked={!isAccepted} onChange={() => setIsAccepted(false)} /> Rejected
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 2. Documents Sections */}
-            <div className="space-y-6">
-                <DocumentUploader
-                    label="1. Internal Interview Notes (Summary/Feedback)"
-                    fileType="image"
-                    required
-                    onFileChange={setNotesFile}
-                    onTextChange={setNotesText}
-                />
-
-                <DocumentUploader
-                    label="2. Internal Candidate Scores (Rubric/Ratings)"
-                    fileType="pdf"
-                    required
-                    onFileChange={setScoresFile}
-                    onTextChange={setScoresText}
-                />
-
-                <DocumentUploader
-                    label="3. Client Feedback (Email/Rejection Note)"
-                    fileType="image"
-                    required
-                    onFileChange={setFeedbackFile}
-                    onTextChange={setFeedbackText}
-                />
-            </div>
-
-            <div className="mt-8 flex justify-end">
-                <button
-                    onClick={handleProcess}
-                    className="btn btn-primary px-8 py-3 text-lg shadow-lg"
-                >
-                    🚀 Process & Analyze
-                </button>
-            </div>
-
-            <ProcessingStatus
-                status={status}
-                message={statusMsg}
-                result={analysisResult}
-                onClose={() => {
-                    if (status === 'success') {
-                        navigate('/dashboard');
-                    } else {
-                        setStatus('idle');
-                    }
-                }}
-            />
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b-2 border-foreground bg-background">
+        <div className="container mx-auto flex items-center gap-4 px-6 py-4">
+          <Button variant="ghost" size="icon" asChild className="border-2 border-foreground">
+            <Link to="/">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold uppercase tracking-tight">
+            Upload Evaluation
+          </h1>
         </div>
-    );
+      </header>
+
+      <main className="container mx-auto px-6 py-8">
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Left Column - Candidate Metadata */}
+            <div className="space-y-6 border-2 border-foreground bg-background p-6 shadow-xs">
+              <h2 className="text-lg font-bold uppercase tracking-wide">
+                Candidate Information
+              </h2>
+
+              <div className="space-y-2">
+                <Label htmlFor="candidateName" className="font-bold uppercase">
+                  Candidate Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="candidateName"
+                  value={candidateName}
+                  onChange={(e) => setCandidateName(e.target.value)}
+                  placeholder="Enter candidate name"
+                  className="border-2 border-foreground"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="appliedRole" className="font-bold uppercase">
+                  Applied Role <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="appliedRole"
+                  value={appliedRole}
+                  onChange={(e) => setAppliedRole(e.target.value)}
+                  placeholder="e.g., Senior Software Engineer"
+                  className="border-2 border-foreground"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Interview Date <span className="text-destructive">*</span>
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start border-2 border-foreground text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {interviewDate ? format(interviewDate, 'PPP') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto border-2 border-foreground bg-background p-0">
+                    <Calendar
+                      mode="single"
+                      selected={interviewDate}
+                      onSelect={setInterviewDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Final Hiring Status <span className="text-destructive">*</span>
+                </Label>
+                <Select value={finalStatus} onValueChange={(v) => setFinalStatus(v as 'accepted' | 'rejected')}>
+                  <SelectTrigger className="border-2 border-foreground">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent className="border-2 border-foreground bg-background">
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Right Column - Entity Selection */}
+            <div className="space-y-6 border-2 border-foreground bg-background p-6 shadow-xs">
+              <h2 className="text-lg font-bold uppercase tracking-wide">
+                Entity Selection
+              </h2>
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Client <span className="text-destructive">*</span>
+                </Label>
+                <EntityCombobox
+                  items={clients.map(c => ({ id: c.id, label: c.name }))}
+                  value={selectedClient}
+                  onValueChange={(v) => {
+                    setSelectedClient(v);
+                    setSelectedRequirement(''); // Reset requirement when client changes
+                  }}
+                  placeholder="Select client"
+                  searchPlaceholder="Search clients..."
+                  emptyText="No clients found"
+                  onCreateNew={() => setCreateClientOpen(true)}
+                  createNewLabel="+ Create New Client"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Job Requirement <span className="text-destructive">*</span>
+                </Label>
+                <EntityCombobox
+                  items={requirements.map(r => ({ id: r.id, label: r.title }))}
+                  value={selectedRequirement}
+                  onValueChange={setSelectedRequirement}
+                  placeholder="Select requirement"
+                  searchPlaceholder="Search requirements..."
+                  emptyText="No requirements found"
+                  onCreateNew={() => setCreateRequirementOpen(true)}
+                  createNewLabel="+ Create New Requirement"
+                  disabled={!selectedClient}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Interviewer <span className="text-destructive">*</span>
+                </Label>
+                <EntityCombobox
+                  items={interviewers.map(i => ({ id: i.id, label: `${i.name} (${i.email})` }))}
+                  value={selectedInterviewer}
+                  onValueChange={setSelectedInterviewer}
+                  placeholder="Select interviewer"
+                  searchPlaceholder="Search interviewers..."
+                  emptyText="No interviewers found"
+                  onCreateNew={() => setCreateInterviewerOpen(true)}
+                  createNewLabel="+ Add New Interviewer"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Evaluation Data Section */}
+          <div className="mt-8 border-2 border-foreground bg-background p-6 shadow-xs">
+            <h2 className="mb-6 text-lg font-bold uppercase tracking-wide">
+              Evaluation Data
+            </h2>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              <FileTextToggle
+                label="Internal Interview Notes"
+                required
+                file={notesFile}
+                text={notesText}
+                onFileChange={setNotesFile}
+                onTextChange={setNotesText}
+              />
+
+              <FileTextToggle
+                label="Internal Candidate Scores"
+                required
+                file={scoresFile}
+                text={scoresText}
+                onFileChange={setScoresFile}
+                onTextChange={setScoresText}
+              />
+
+              <FileTextToggle
+                label="Client Feedback Notes"
+                required
+                file={feedbackFile}
+                text={feedbackText}
+                onFileChange={setFeedbackFile}
+                onTextChange={setFeedbackText}
+              />
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="mt-8 flex justify-end">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isSubmitting}
+              className="border-2 border-foreground px-8 shadow-sm"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Process & Analyze'
+              )}
+            </Button>
+          </div>
+        </form>
+      </main>
+
+      {/* Create Entity Dialogs */}
+      <CreateClientDialog
+        open={createClientOpen}
+        onOpenChange={setCreateClientOpen}
+        onSubmit={(name) => createClientMutation.mutate(name)}
+        isLoading={createClientMutation.isPending}
+      />
+
+      <CreateRequirementDialog
+        open={createRequirementOpen}
+        onOpenChange={setCreateRequirementOpen}
+        onSubmit={(data) => createRequirementMutation.mutate(data)}
+        isLoading={createRequirementMutation.isPending}
+        clientName={selectedClientName}
+      />
+
+      <CreateInterviewerDialog
+        open={createInterviewerOpen}
+        onOpenChange={setCreateInterviewerOpen}
+        onSubmit={(data) => createInterviewerMutation.mutate(data)}
+        isLoading={createInterviewerMutation.isPending}
+      />
+    </div>
+  );
 };
 
 export default UploadPage;
