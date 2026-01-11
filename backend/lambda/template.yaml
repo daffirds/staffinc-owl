@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Staffinc Owl Lambda - 2 function architecture
+
+Globals:
+  Api:
+    Cors:
+      AllowOrigin: "'*'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Admin-Key'"
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 900
+    MemorySize: 512
+    Environment:
+      Variables:
+        AWS_S3_BUCKET: owl-123
+        OPENAI_API_KEY: !Ref OpenAIApiKey
+        DATABASE_URL: !Ref DatabaseUrl
+        ADMIN_KEY: !Ref AdminKey
+        NODE_TLS_REJECT_UNAUTHORIZED: '0'
+
+Resources:
+  AIFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: dist/ai/index.handler
+      Timeout: 600
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub 'arn:aws:s3:::owl-123/*'
+      Environment:
+        Variables:
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+      Events:
+        Health:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+        Presigned:
+          Type: Api
+          Properties:
+            Path: /upload/presigned
+            Method: post
+        AiAnalyze:
+          Type: Api
+          Properties:
+            Path: /ai/analyze
+            Method: post
+        AiNormalizeNotes:
+          Type: Api
+          Properties:
+            Path: /ai/normalize-notes
+            Method: post
+        AiNormalizeScores:
+          Type: Api
+          Properties:
+            Path: /ai/normalize-scores
+            Method: post
+        AiNormalizeFeedback:
+          Type: Api
+          Properties:
+            Path: /ai/normalize-feedback
+            Method: post
+        AiStandardizeRequirements:
+          Type: Api
+          Properties:
+            Path: /ai/standardize-requirements
+            Method: post
+
+  PrivateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: dist/private/index.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-0dce2ce88be7969d5
+        SubnetIds:
+          - subnet-0e3887da06610bb2e
+          - subnet-0e0823d3a2cb90f53
+          - subnet-03775301edde3c552
+      Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource: !Sub 'arn:aws:s3:::owl-123/*'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !GetAtt AIFunction.Arn
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-PrivateFunction-*
+      Environment:
+        Variables:
+          API_GATEWAY_ID: '0uygfnbbo2'
+          AI_FUNCTION_ARN: !GetAtt AIFunction.Arn
+      Events:
+        UploadProcess:
+          Type: Api
+          Properties:
+            Path: /upload/process
+            Method: post
+        UploadStatus:
+          Type: Api
+          Properties:
+            Path: /upload/process/status/{id}
+            Method: get
+        SetupClients:
+          Type: Api
+          Properties:
+            Path: /clients
+            Method: post
+        GetClients:
+          Type: Api
+          Properties:
+            Path: /clients
+            Method: get
+        SetupInterviewers:
+          Type: Api
+          Properties:
+            Path: /interviewers
+            Method: post
+        GetInterviewers:
+          Type: Api
+          Properties:
+            Path: /interviewers
+            Method: get
+        SetupRequirements:
+          Type: Api
+          Properties:
+            Path: /requirements
+            Method: post
+        GetRequirements:
+          Type: Api
+          Properties:
+            Path: /requirements
+            Method: get
+        MetricsOverview:
+          Type: Api
+          Properties:
+            Path: /metrics/overview
+            Method: get
+        MetricsCandidates:
+          Type: Api
+          Properties:
+            Path: /metrics/candidates
+            Method: get
+        InternalProcess:
+          Type: Api
+          Properties:
+            Path: /internal/process
+            Method: post
+        AdminDb:
+          Type: Api
+          Properties:
+            Path: /admin/db
+            Method: get
+        AdminCleanup:
+          Type: Api
+          Properties:
+            Path: /admin/cleanup-stuck
+            Method: get
+        DbTest:
+          Type: Api
+          Properties:
+            Path: /db-test
+            Method: get
+
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Default: 'dummy-key'
+
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Default: 'postgresql://localhost:5432/test'
+
+  AdminKey:
+    Type: String
+    NoEcho: true
+    Default: 'admin123'
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  AIFunctionArn:
+    Description: "AI Function ARN"
+    Value: !GetAtt AIFunction.Arn

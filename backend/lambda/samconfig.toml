@@ -1,0 +1,16 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "staffinc-owl"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+s3_bucket = "staffinc-owl-lambda-code"
+
+[default.package.parameters]
+resolve_s3 = true
