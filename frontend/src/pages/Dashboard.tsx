@@ -127,7 +127,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-background">
         <div className="container mx-auto flex items-center justify-between px-6 py-4">
           <h1 className="text-2xl font-semibold uppercase tracking-tight">Staffinc Owl</h1>
           <Button asChild className="border border-border bg-blue-600 text-white hover:bg-blue-700">
@@ -261,7 +261,7 @@ const Dashboard = () => {
 
         {/* Gap Metrics */}
         <section>
-          <h2 className="mb-4 text-lg font-bold uppercase tracking-wide">Gap Analysis</h2>
+          <h2 className="mb-4 text-lg font-bold uppercase tracking-wide">Rejection Reason Analysis</h2>
           {metricsLoading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -297,8 +297,7 @@ const Dashboard = () => {
                 className="border border-input"
                 onClick={handleRefresh}
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
+                <RefreshCw className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">Rows</span>
               <Select
@@ -332,9 +331,8 @@ const Dashboard = () => {
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 text-center font-semibold">Hidden</th>
                   <th className="px-4 py-3 text-center font-semibold">Conflict</th>
-                  <th className="px-4 py-3 text-center font-semibold">Mismatch</th>
+                  <th className="px-4 py-3 text-center font-semibold">Score</th>
                   <th className="px-4 py-3 text-center font-semibold">Other</th>
-                  <th className="px-2 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -379,20 +377,13 @@ const Dashboard = () => {
                             {renderGapFlag(candidate.status, candidate.hasScoreMismatch)}
                           </td>
                           <td className="px-4 py-3 text-center">{renderGapFlag(candidate.status, candidate.hasOther)}</td>
-                          <td className="px-2 py-3 text-center">
-                            {isExpanded ? (
-                              <ChevronUp className="mx-auto h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="mx-auto h-4 w-4 text-muted-foreground" />
-                            )}
-                          </td>
                         </tr>
                         {isExpanded && (
                           <tr className="border-b border-border">
                             <td colSpan={9} className="px-4 py-4">
                               <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4">
                                 <div>
-                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Standardized Requirements</h4>
+                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Client Requirements</h4>
                                   <pre className="whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs">
                                     {formatMaybeJson(
                                       candidate.standardizedRequirements || candidate.requirementsText

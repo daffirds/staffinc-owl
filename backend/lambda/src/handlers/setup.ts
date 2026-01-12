@@ -222,7 +222,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
 
       if (event.httpMethod === 'GET') {
-        const requirements = await dbService.getRequirements();
+        const clientId = event.queryStringParameters?.clientId;
+        if (clientId) {
+          const parsed = z.string().uuid().safeParse(clientId);
+          if (!parsed.success) {
+            return errorResponse(400, 'clientId must be a valid UUID', parsed.error, origin || undefined);
+          }
+        }
+        const requirements = await dbService.getRequirements(clientId);
         return successResponse(requirements, origin || undefined);
       }
     }

@@ -284,7 +284,7 @@ class LLMService {
       Determine if any of these gap metrics are TRUE (boolean):
       1. hidden_criteria: Client rejected for a reason NOT mentioned in requirements.
       2. assessment_conflict: Internal notes say X is good, Client says X is bad.
-      3. score_mismatch: Internal avg score >= 7 but Client rejected.
+      3. score_mismatch: Internal avg score >= 8 but Client rejected.
       
       Also provide a short explanation for each strictly if it is TRUE.
       

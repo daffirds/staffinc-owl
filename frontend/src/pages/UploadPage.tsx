@@ -213,7 +213,7 @@ const UploadPage = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-background">
         <div className="container mx-auto flex items-center gap-4 px-6 py-4">
           <Button variant="ghost" size="icon" asChild className="border border-input">
             <Link to="/">
@@ -288,7 +288,7 @@ const UploadPage = () => {
 
               <div className="space-y-2">
                 <Label className="font-semibold uppercase">
-                  Final Hiring Status <span className="text-destructive">*</span>
+                  Final Client Hiring Status <span className="text-destructive">*</span>
                 </Label>
                 <Select value={finalStatus} onValueChange={(v) => setFinalStatus(v as 'accepted' | 'rejected')}>
                   <SelectTrigger className="border border-input">

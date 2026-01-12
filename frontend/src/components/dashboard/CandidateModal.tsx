@@ -29,9 +29,9 @@ const gapExplanationKey: Record<GapType, keyof Candidate> = {
 
 const gapDescriptionMap: Record<GapType, string> = {
   hiddenCriteria: 'The rejection reason was not mentioned in client requirements.',
-  assessmentConflict: 'Interviewer notes or scores conflict with the final decision.',
+  assessmentConflict: 'Interviewer notes or scores contradict to client feedback notes.',
   scoreMismatch: 'Scores don\'t align with the accept/reject outcome.',
-  other: 'Rejected without any of the flagged gap categories.',
+  other: 'Rejected without any of the flagged metric categories.',
 };
 
 const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: CandidateModalProps) => {
@@ -113,12 +113,6 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
           </div>
          ) : data ? (
           <>
-            {/* Metric Description */}
-            <div className="border-2 border-foreground bg-muted p-4">
-              <h4 className="mb-2 font-bold uppercase tracking-wide">Metric Description</h4>
-              <p className="text-sm leading-relaxed">{gapDescriptionMap[gapType]}</p>
-            </div>
-
             {/* Candidate List */}
             <div className="max-h-[400px] overflow-y-auto">
               {candidates.length === 0 ? (
@@ -129,7 +123,29 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                     const isExpanded = expandedCandidateId === candidate.id;
                     const titleLine = [candidate.appliedRole || 'Role TBD', candidate.clientName]
                       .filter(Boolean)
-                      .join(' • ');
+                      .join('  •  ');
+                    const candidateReason = candidate[gapExplanationKey[gapType]] as string | undefined;
+                    const scoreText = (() => {
+                      const rawScoreText = candidate.standardizedScores || candidate.rawInternalScores || '';
+                      if (!rawScoreText) return null;
+                      try {
+                        const parsed = JSON.parse(rawScoreText);
+                        if (parsed && typeof parsed === 'object') {
+                          if ('avg_score' in parsed && parsed.avg_score != null) return parsed.avg_score;
+                          if ('avg' in parsed && parsed.avg != null) return parsed.avg;
+                          if ('score' in parsed && parsed.score != null) return parsed.score;
+                        }
+                      } catch {
+                        // not JSON
+                      }
+                      const match = rawScoreText.match(/-?\d+(?:\.\d+)?/);
+                      return match ? match[0] : rawScoreText.trim().split('\n')[0];
+                    })();
+                    const description =
+                      candidateReason ||
+                      (gapType === 'scoreMismatch' && scoreText
+                        ? `Candidate score is ${scoreText} but rejected.`
+                        : gapDescriptionMap[gapType]);
 
                     return (
                       <div key={candidate.id} className="py-4">
@@ -140,39 +156,25 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                         >
                           <div>
                             <h5 className="font-bold">{candidate.name}</h5>
-                            <p className="text-sm text-muted-foreground">{titleLine}</p>
-                            {candidate.interviewDate ? (
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(candidate.interviewDate).toLocaleDateString()}
-                              </p>
-                            ) : null}
+                            <p className="text-xs text-muted-foreground">
+                              {titleLine}
+                              {candidate.interviewDate ? ` • ${new Date(candidate.interviewDate).toLocaleDateString()}` : ''}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {description}
+                            </p>
+                            
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`border-2 border-foreground px-2 py-1 text-xs font-bold uppercase ${
-                                candidate.status === 'rejected'
-                                  ? 'bg-foreground text-background'
-                                  : 'bg-background text-foreground'
-                              }`}
-                            >
-                              {candidate.status}
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
-                                isExpanded ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </div>
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
                         </button>
 
                         {isExpanded ? (
-                          <div className="mt-3 rounded-lg border-2 border-foreground bg-background p-3">
-                            {candidate[gapExplanationKey[gapType]] ? (
-                              <p className="mb-3 border-l-4 border-foreground bg-muted pl-3 text-sm">
-                                {candidate[gapExplanationKey[gapType]] as string}
-                              </p>
-                            ) : null}
 
+                          <div className="mt-3 rounded-lg border-2 border-foreground bg-background p-3">
                             <Accordion
                               type="single"
                               collapsible
@@ -182,7 +184,7 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                             >
                               <AccordionItem value="requirements">
                                 <AccordionTrigger className="py-2 text-sm">
-                                  Standardized requirements
+                                  Client Requirements
                                 </AccordionTrigger>
                                 <AccordionContent className="pb-2">
                                   <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-xs">
@@ -194,7 +196,7 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                               </AccordionItem>
 
                               <AccordionItem value="feedback">
-                                <AccordionTrigger className="py-2 text-sm">Feedback</AccordionTrigger>
+                                <AccordionTrigger className="py-2 text-sm">Client Feedback</AccordionTrigger>
                                 <AccordionContent className="pb-2">
                                   <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-xs">
                                     {candidate.standardizedFeedback ||
@@ -205,7 +207,7 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                               </AccordionItem>
 
                               <AccordionItem value="scores">
-                                <AccordionTrigger className="py-2 text-sm">Scores</AccordionTrigger>
+                                <AccordionTrigger className="py-2 text-sm">Internal Scores</AccordionTrigger>
                                 <AccordionContent className="pb-2">
                                   <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-xs">
                                     {formatMaybeJson(
@@ -216,7 +218,7 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
                               </AccordionItem>
 
                               <AccordionItem value="notes">
-                                <AccordionTrigger className="py-2 text-sm">Notes</AccordionTrigger>
+                                <AccordionTrigger className="py-2 text-sm">Internal Notes</AccordionTrigger>
                                 <AccordionContent className="pb-2">
                                   <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-xs">
                                     {candidate.standardizedNotes ||

@@ -58,11 +58,11 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
         <div className="mt-4 space-y-1 text-xs">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-destructive" />
-            <span>Rejected by this gap: {rejected}</span>
+            <span>Rejected with this metric: {rejected}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-4))]" />
-            <span>Other reasons: {otherRejected}</span>
+            <span>Rejected without this metric: {otherRejected}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" />
@@ -71,7 +71,7 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
         </div>
 
         <Button onClick={onReviewClick} className="mt-4 w-full border border-border" variant="outline">
-          Review Gaps
+          Review metric
         </Button>
       </CardContent>
     </Card>

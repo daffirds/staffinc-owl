@@ -59,8 +59,11 @@ class DatabaseService {
     return result.rows[0];
   }
 
-  async getRequirements(): Promise<any[]> {
-    const result = await this.query('SELECT id, client_id, role_title as title, raw_content as requirements_text, created_at FROM client_requirements ORDER BY created_at DESC');
+  async getRequirements(clientId?: string): Promise<any[]> {
+    const baseQuery = 'SELECT id, client_id, role_title as title, raw_content as requirements_text, created_at FROM client_requirements';
+    const whereClause = clientId ? ' WHERE client_id = $1' : '';
+    const orderClause = ' ORDER BY created_at DESC';
+    const result = await this.query(`${baseQuery}${whereClause}${orderClause}`, clientId ? [clientId] : []);
     return result.rows;
   }
 
