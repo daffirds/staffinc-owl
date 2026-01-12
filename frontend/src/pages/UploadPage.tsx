@@ -185,7 +185,6 @@ const UploadPage = () => {
 
       // Reset form
       setCandidateName('');
-      setAppliedRole('');
       setInterviewDate(undefined);
       setFinalStatus(undefined);
       setSelectedClient('');
