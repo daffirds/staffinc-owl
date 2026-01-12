@@ -204,6 +204,7 @@ const UploadPage = () => {
       toast({ title: 'Upload failed. Please try again.', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
+      setFinalStatus(undefined);
     }
   };
 
