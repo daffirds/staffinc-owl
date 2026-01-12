@@ -222,7 +222,7 @@ class DatabaseService {
       `
       SELECT
         COUNT(*)::int AS total_interviews,
-        COUNT(*)::int AS total_candidates,
+        COUNT(DISTINCT lower(trim(coalesce(c.candidate_name, ''))))::int AS total_candidates,
         COUNT(*) FILTER (WHERE c.is_accepted IS TRUE)::int AS accepted_count,
         COUNT(*) FILTER (WHERE COALESCE(c.is_accepted, false) IS FALSE)::int AS rejected_count,
         COUNT(*) FILTER (
