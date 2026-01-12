@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,14 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
 import EntityCombobox from '@/components/upload/EntityCombobox';
 import FileTextToggle from '@/components/upload/FileTextToggle';
 import {
@@ -40,6 +34,7 @@ import {
   uploadToS3,
   processUpload,
 } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const UploadPage = () => {
   const navigate = useNavigate();
@@ -55,8 +50,6 @@ const UploadPage = () => {
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedRequirement, setSelectedRequirement] = useState('');
   const [selectedInterviewer, setSelectedInterviewer] = useState('');
-
-  // File/Text state
   const [notesFile, setNotesFile] = useState<File | null>(null);
   const [notesText, setNotesText] = useState('');
   const [scoresFile, setScoresFile] = useState<File | null>(null);
@@ -98,20 +91,11 @@ const UploadPage = () => {
   });
 
   const createRequirementMutation = useMutation({
-    mutationFn: async (data: { title: string; file: File | null; text: string }) => {
-      let documentKey: string | undefined;
-      if (data.file) {
-        const presigned = await getPresignedUrl(data.file.name, data.file.type);
-        await uploadToS3(presigned.uploadUrl, data.file);
-        documentKey = presigned.key;
-      }
-      return createRequirement({
-        title: data.title,
-        client_id: selectedClient,
-        documentKey,
-        requirements_text: data.text || undefined,
-      });
-    },
+    mutationFn: (data: { title: string; file?: File | null; text: string }) =>
+      createRequirement({
+        ...data,
+        clientId: selectedClient,
+      }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['requirements'] });
       setSelectedRequirement(data.id);
@@ -121,7 +105,8 @@ const UploadPage = () => {
   });
 
   const createInterviewerMutation = useMutation({
-    mutationFn: createInterviewer,
+    mutationFn: (data: { name: string }) =>
+      createInterviewer({ name: data.name }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['interviewers'] });
       setSelectedInterviewer(data.id);
@@ -197,7 +182,7 @@ const UploadPage = () => {
 
       completeProcessing();
       toast({ title: 'Evaluation submitted successfully!' });
-      
+
       // Reset form
       setCandidateName('');
       setAppliedRole('');
@@ -223,19 +208,19 @@ const UploadPage = () => {
     }
   };
 
-  const selectedClientName = clients.find(c => c.id === selectedClient)?.name;
+  const selectedClientName = clients.find((c) => c.id === selectedClient)?.name;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b-2 border-foreground bg-background">
+      <header className="border-b border-border bg-background">
         <div className="container mx-auto flex items-center gap-4 px-6 py-4">
-          <Button variant="ghost" size="icon" asChild className="border-2 border-foreground">
+          <Button variant="ghost" size="icon" asChild className="border border-input">
             <Link to="/">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold uppercase tracking-tight">
+          <h1 className="text-2xl font-semibold uppercase tracking-tight">
             Upload Evaluation
           </h1>
         </div>
@@ -245,13 +230,13 @@ const UploadPage = () => {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Left Column - Candidate Metadata */}
-            <div className="space-y-6 border-2 border-foreground bg-background p-6 shadow-xs">
-              <h2 className="text-lg font-bold uppercase tracking-wide">
+            <div className="space-y-6 border border-border bg-background p-6">
+              <h2 className="text-lg font-semibold uppercase tracking-wide">
                 Candidate Information
               </h2>
 
               <div className="space-y-2">
-                <Label htmlFor="candidateName" className="font-bold uppercase">
+                <Label htmlFor="candidateName" className="font-semibold uppercase">
                   Candidate Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -259,12 +244,12 @@ const UploadPage = () => {
                   value={candidateName}
                   onChange={(e) => setCandidateName(e.target.value)}
                   placeholder="Enter candidate name"
-                  className="border-2 border-foreground"
+                  className="border border-input"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="appliedRole" className="font-bold uppercase">
+                <Label htmlFor="appliedRole" className="font-semibold uppercase">
                   Applied Role <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -272,25 +257,25 @@ const UploadPage = () => {
                   value={appliedRole}
                   onChange={(e) => setAppliedRole(e.target.value)}
                   placeholder="e.g., Senior Software Engineer"
-                  className="border-2 border-foreground"
+                  className="border border-input"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold uppercase">
+                <Label className="font-semibold uppercase">
                   Interview Date <span className="text-destructive">*</span>
                 </Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start border-2 border-foreground text-left font-normal"
+                      className="w-full justify-start border border-input text-left font-normal"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {interviewDate ? format(interviewDate, 'PPP') : 'Select date'}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto border-2 border-foreground bg-background p-0">
+                  <PopoverContent className="w-auto border border-input bg-background p-0">
                     <Calendar
                       mode="single"
                       selected={interviewDate}
@@ -302,14 +287,14 @@ const UploadPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold uppercase">
+                <Label className="font-semibold uppercase">
                   Final Hiring Status <span className="text-destructive">*</span>
                 </Label>
                 <Select value={finalStatus} onValueChange={(v) => setFinalStatus(v as 'accepted' | 'rejected')}>
-                  <SelectTrigger className="border-2 border-foreground">
+                  <SelectTrigger className="border border-input">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
-                  <SelectContent className="border-2 border-foreground bg-background">
+                  <SelectContent className="border border-border bg-background">
                     <SelectItem value="accepted">Accepted</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
@@ -318,17 +303,17 @@ const UploadPage = () => {
             </div>
 
             {/* Right Column - Entity Selection */}
-            <div className="space-y-6 border-2 border-foreground bg-background p-6 shadow-xs">
-              <h2 className="text-lg font-bold uppercase tracking-wide">
+            <div className="space-y-6 border border-border bg-background p-6">
+              <h2 className="text-lg font-semibold uppercase tracking-wide">
                 Entity Selection
               </h2>
 
               <div className="space-y-2">
-                <Label className="font-bold uppercase">
+                <Label className="font-semibold uppercase">
                   Client <span className="text-destructive">*</span>
                 </Label>
                 <EntityCombobox
-                  items={clients.map(c => ({ id: c.id, label: c.name }))}
+                  items={clients.map((c) => ({ id: c.id, label: c.name }))}
                   value={selectedClient}
                   onValueChange={(v) => {
                     setSelectedClient(v);
@@ -338,124 +323,125 @@ const UploadPage = () => {
                   searchPlaceholder="Search clients..."
                   emptyText="No clients found"
                   onCreateNew={() => setCreateClientOpen(true)}
-                  createNewLabel="+ Create New Client"
+                  createNewLabel="Create New Client"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold uppercase">
+                <Label className="font-semibold uppercase">
                   Job Requirement <span className="text-destructive">*</span>
                 </Label>
                 <EntityCombobox
-                  items={requirements.map(r => ({ id: r.id, label: r.title }))}
+                  items={requirements.map((r) => ({ id: r.id, label: r.title }))}
                   value={selectedRequirement}
                   onValueChange={setSelectedRequirement}
                   placeholder="Select requirement"
                   searchPlaceholder="Search requirements..."
                   emptyText="No requirements found"
                   onCreateNew={() => setCreateRequirementOpen(true)}
-                  createNewLabel="+ Create New Requirement"
+                  createNewLabel="Create New Requirement"
                   disabled={!selectedClient}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold uppercase">
+                <Label className="font-semibold uppercase">
                   Interviewer <span className="text-destructive">*</span>
                 </Label>
                 <EntityCombobox
-                  items={interviewers.map(i => ({ id: i.id, label: `${i.name} (${i.email})` }))}
+                  items={interviewers.map((i) => ({ id: i.id, label: i.name }))}
                   value={selectedInterviewer}
                   onValueChange={setSelectedInterviewer}
                   placeholder="Select interviewer"
                   searchPlaceholder="Search interviewers..."
                   emptyText="No interviewers found"
                   onCreateNew={() => setCreateInterviewerOpen(true)}
-                  createNewLabel="+ Add New Interviewer"
+                  createNewLabel="Add New Interviewer"
+                  disabled={!selectedClient}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Evaluation Data Section */}
-          <div className="mt-8 border-2 border-foreground bg-background p-6 shadow-xs">
-            <h2 className="mb-6 text-lg font-bold uppercase tracking-wide">
-              Evaluation Data
-            </h2>
+            {/* Evaluation Data Section */}
+            <div className="mt-8 border border-border bg-background p-6">
+              <h2 className="mb-6 text-lg font-semibold uppercase tracking-wide">
+                Evaluation Data
+              </h2>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-              <FileTextToggle
-                label="Internal Interview Notes"
-                required
-                file={notesFile}
-                text={notesText}
-                onFileChange={setNotesFile}
-                onTextChange={setNotesText}
-              />
+              <div className="grid gap-6 lg:grid-cols-3">
+                <FileTextToggle
+                  label="Internal Interview Notes"
+                  required
+                  file={notesFile}
+                  text={notesText}
+                  onFileChange={setNotesFile}
+                  onTextChange={setNotesText}
+                />
 
-              <FileTextToggle
-                label="Internal Candidate Scores"
-                required
-                file={scoresFile}
-                text={scoresText}
-                onFileChange={setScoresFile}
-                onTextChange={setScoresText}
-              />
+                <FileTextToggle
+                  label="Internal Candidate Scores"
+                  required
+                  file={scoresFile}
+                  text={scoresText}
+                  onFileChange={setScoresFile}
+                  onTextChange={setScoresText}
+                />
 
-              <FileTextToggle
-                label="Client Feedback Notes"
-                required
-                file={feedbackFile}
-                text={feedbackText}
-                onFileChange={setFeedbackFile}
-                onTextChange={setFeedbackText}
-              />
+                <FileTextToggle
+                  label="Client Feedback Notes"
+                  required
+                  file={feedbackFile}
+                  text={feedbackText}
+                  onFileChange={setFeedbackFile}
+                  onTextChange={setFeedbackText}
+                />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="mt-8 flex justify-end">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isSubmitting}
+                className="border border-input px-8 shadow-sm bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Process & Analyze'
+                )}
+              </Button>
             </div>
           </div>
-
-          {/* Submit Button */}
-          <div className="mt-8 flex justify-end">
-            <Button
-              type="submit"
-              size="lg"
-              disabled={isSubmitting}
-              className="border-2 border-foreground px-8 shadow-sm"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                'Process & Analyze'
-              )}
-            </Button>
-          </div>
         </form>
+
+        {/* Create Entity Dialogs */}
+        <CreateClientDialog
+          open={createClientOpen}
+          onOpenChange={setCreateClientOpen}
+          onSubmit={(name) => createClientMutation.mutate(name)}
+          isLoading={createClientMutation.isPending}
+        />
+
+        <CreateRequirementDialog
+          open={createRequirementOpen}
+          onOpenChange={setCreateRequirementOpen}
+          onSubmit={(data) => createRequirementMutation.mutate(data)}
+          isLoading={createRequirementMutation.isPending}
+          clientName={selectedClientName}
+        />
+
+        <CreateInterviewerDialog
+          open={createInterviewerOpen}
+          onOpenChange={setCreateInterviewerOpen}
+          onSubmit={(data) => createInterviewerMutation.mutate(data)}
+          isLoading={createInterviewerMutation.isPending}
+        />
       </main>
-
-      {/* Create Entity Dialogs */}
-      <CreateClientDialog
-        open={createClientOpen}
-        onOpenChange={setCreateClientOpen}
-        onSubmit={(name) => createClientMutation.mutate(name)}
-        isLoading={createClientMutation.isPending}
-      />
-
-      <CreateRequirementDialog
-        open={createRequirementOpen}
-        onOpenChange={setCreateRequirementOpen}
-        onSubmit={(data) => createRequirementMutation.mutate(data)}
-        isLoading={createRequirementMutation.isPending}
-        clientName={selectedClientName}
-      />
-
-      <CreateInterviewerDialog
-        open={createInterviewerOpen}
-        onOpenChange={setCreateInterviewerOpen}
-        onSubmit={(data) => createInterviewerMutation.mutate(data)}
-        isLoading={createInterviewerMutation.isPending}
-      />
     </div>
   );
 };

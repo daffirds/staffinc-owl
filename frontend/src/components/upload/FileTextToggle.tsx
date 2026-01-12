@@ -22,7 +22,7 @@ const FileTextToggle = ({
   onFileChange,
   onTextChange,
 }: FileTextToggleProps) => {
-  const [mode, setMode] = useState<'file' | 'text'>('file');
+  const [mode, setMode] = useState<'file' | 'text'>('text');
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -42,32 +42,10 @@ const FileTextToggle = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="font-bold uppercase tracking-wide">
+        <Label className="font-semibold uppercase tracking-wide">
           {label}
           {required && <span className="ml-1 text-destructive">*</span>}
         </Label>
-        <div className="flex border-2 border-foreground">
-          <Button
-            type="button"
-            variant={mode === 'file' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setMode('file')}
-            className="rounded-none"
-          >
-            <Upload className="mr-1 h-4 w-4" />
-            File
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'text' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setMode('text')}
-            className="rounded-none border-l-2 border-foreground"
-          >
-            <FileText className="mr-1 h-4 w-4" />
-            Text
-          </Button>
-        </div>
       </div>
 
       {mode === 'file' ? (
@@ -76,7 +54,8 @@ const FileTextToggle = ({
             type="file"
             accept=".pdf,.doc,.docx,.txt"
             onChange={handleFileInput}
-            className="cursor-pointer border-2 border-dashed border-foreground file:border-0 file:bg-transparent file:text-sm file:font-medium"
+            className="cursor-pointer border border-dashed border-border file:border-0 file:bg-transparent file:text-sm file:font-medium"
+            disabled
           />
           {file && (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -89,9 +68,13 @@ const FileTextToggle = ({
           placeholder="Paste your content here..."
           value={text}
           onChange={(e) => handleTextInput(e.target.value)}
-          className="min-h-[120px] border-2 border-foreground"
+          className="min-h-[120px] border border-border"
         />
       )}
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        Note: File upload will be supported soon.
+      </p>
     </div>
   );
 };

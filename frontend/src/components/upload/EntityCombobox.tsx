@@ -50,17 +50,34 @@ const EntityCombobox = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between border-2 border-foreground"
+          className="w-full justify-between border border-input"
           disabled={disabled}
         >
-          {selectedItem ? selectedItem.label : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-left">
+              {selectedItem ? selectedItem.label : placeholder}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full min-w-[300px] border-2 border-foreground bg-background p-0">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} className="border-b-2 border-foreground" />
-          <CommandList>
+      <PopoverContent className="w-full min-w-[300px] border border-border bg-background p-0">
+          <Command>
+            <CommandInput placeholder={searchPlaceholder} className="border-b border-border" />
+            <CommandList>
+              {onCreateNew && createNewLabel && (
+
+              <CommandItem
+                onSelect={() => {
+                  onCreateNew();
+                  setOpen(false);
+                }}
+                className="text-primary"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {createNewLabel}
+              </CommandItem>
+            )}
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {items.map((item) => (
@@ -82,20 +99,6 @@ const EntityCombobox = ({
                 </CommandItem>
               ))}
             </CommandGroup>
-            {onCreateNew && createNewLabel && (
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    onCreateNew();
-                    setOpen(false);
-                  }}
-                  className="text-primary"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {createNewLabel}
-                </CommandItem>
-              </CommandGroup>
-            )}
           </CommandList>
         </Command>
       </PopoverContent>
