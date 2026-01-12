@@ -36,11 +36,11 @@ class DatabaseService {
     return result.rows;
   }
 
-  async createClient(data: { name: string; industry?: string }): Promise<any> {
-    const { name, industry } = data;
+  async createClient(data: { name: string }): Promise<any> {
+    const { name } = data;
     const result = await this.query(
-      'INSERT INTO clients (id, name, industry, created_at) VALUES (gen_random_uuid(), $1, $2, NOW()) RETURNING *',
-      [name, industry]
+      'INSERT INTO clients (id, name, created_at) VALUES (gen_random_uuid(), $1, NOW()) RETURNING *',
+      [name]
     );
     return result.rows[0];
   }
@@ -50,11 +50,11 @@ class DatabaseService {
     return result.rows;
   }
 
-  async createInterviewer(data: { name: string; specialization?: string }): Promise<any> {
-    const { name, specialization } = data;
+  async createInterviewer(data: { name: string }): Promise<any> {
+    const { name } = data;
     const result = await this.query(
-      'INSERT INTO interviewers (id, name, specialization, created_at) VALUES (gen_random_uuid(), $1, $2, NOW()) RETURNING *',
-      [name, specialization]
+      'INSERT INTO interviewers (id, name, created_at) VALUES (gen_random_uuid(), $1, NOW()) RETURNING *',
+      [name]
     );
     return result.rows[0];
   }
@@ -290,6 +290,14 @@ class DatabaseService {
         c.interview_date,
         c.created_at,
         c.is_accepted,
+        c.raw_internal_notes,
+        c.raw_internal_scores,
+        c.raw_client_feedback,
+        c.standardized_internal_notes,
+        c.standardized_scores,
+        c.standardized_client_feedback,
+        cr.raw_content AS requirements_text,
+        cr.standardized_requirements,
         c.has_hidden_criteria,
         c.hidden_criteria_explanation,
         c.has_assessment_conflict,
@@ -331,6 +339,14 @@ class DatabaseService {
         status: isAccepted ? 'accepted' : 'rejected',
         clientName: row.client_name || 'Unknown',
         interviewerName: row.interviewer_name || undefined,
+        requirementsText: row.requirements_text || undefined,
+        standardizedRequirements: row.standardized_requirements || undefined,
+        rawInternalNotes: row.raw_internal_notes || undefined,
+        rawInternalScores: row.raw_internal_scores || undefined,
+        rawClientFeedback: row.raw_client_feedback || undefined,
+        standardizedNotes: row.standardized_internal_notes || undefined,
+        standardizedScores: row.standardized_scores || undefined,
+        standardizedFeedback: row.standardized_client_feedback || undefined,
         hasHiddenCriteria: !!row.has_hidden_criteria,
         hiddenCriteriaExplanation: row.hidden_criteria_explanation || undefined,
         hasAssessmentConflict: !!row.has_assessment_conflict,

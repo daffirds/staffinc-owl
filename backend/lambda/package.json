@@ -2,7 +2,7 @@
   "name": "staffinc-owl-lambda",
   "version": "2.0.0",
   "description": "Staffinc Owl Backend Lambda - SAM Implementation",
-  "main": "dist/public/index.js",
+  "main": "dist/ai/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w"

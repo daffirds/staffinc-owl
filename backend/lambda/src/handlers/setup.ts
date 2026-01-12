@@ -2,16 +2,14 @@ import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { z } from 'zod';
 import { Pool } from 'pg';
 import { Lambda } from '@aws-sdk/client-lambda';
-import { dbService } from '../../services/database';
+import { dbService } from '../services/database';
 
 const CreateClientSchema = z.object({
   name: z.string().min(1),
-  industry: z.string().optional(),
 });
 
 const CreateInterviewerSchema = z.object({
   name: z.string().min(1),
-  specialization: z.string().optional(),
 });
 
 const CreateRequirementSchema = z.object({

@@ -1,8 +1,8 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { z } from 'zod';
 import { Lambda } from '@aws-sdk/client-lambda';
-import { dbService } from '../../services/database';
-import { GapAnalysisResult } from '../../types';
+import { dbService } from '../services/database';
+import { GapAnalysisResult } from '../types';
 
 const InternalProcessSchema = z.object({
   candidateId: z.string().min(1),

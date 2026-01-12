@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { awsService } from '../../services/aws.service';
+import { awsService } from '../services/aws.service';
 
 const PresignedUrlSchema = z.object({
   fileName: z.string().min(1),
@@ -47,6 +47,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         'Access-Control-Allow-Credentials': true,
       },
       body: JSON.stringify({
+        uploadUrl: url,
         url,
         key,
       }),

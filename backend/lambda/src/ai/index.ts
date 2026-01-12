@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { llmService } from '../services/llm.service';
-import { handler as healthHandler } from '../public/handlers/health';
-import { handler as presignedHandler } from '../public/handlers/get-presigned-url';
+import { handler as healthHandler } from '../handlers/health';
+import { handler as presignedHandler } from '../handlers/get-presigned-url';
 
 export const handler: APIGatewayProxyHandler = async (event: any) => {
   try {

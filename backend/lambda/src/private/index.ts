@@ -1,11 +1,11 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
-import { handler as setupHandler } from './handlers/setup';
-import { handler as metricsHandler } from './handlers/metrics';
-import { handler as adminHandler } from './handlers/admin';
-import { handler as internalProcessHandler } from './handlers/internal-process';
-import { handler as dbTestHandler } from './handlers/db-test';
-import { handler as processCandidateHandler } from '../public/handlers/process-candidate';
-import { handler as candidateStatusHandler } from '../public/handlers/status';
+import { handler as setupHandler } from '../handlers/setup';
+import { handler as metricsHandler } from '../handlers/metrics';
+import { handler as adminHandler } from '../handlers/admin';
+import { handler as internalProcessHandler } from '../handlers/internal-process';
+import { handler as dbTestHandler } from '../handlers/db-test';
+import { handler as processCandidateHandler } from '../handlers/process-candidate';
+import { handler as candidateStatusHandler } from '../handlers/status';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const origin = event.headers?.origin || (event.headers as any)?.Origin;

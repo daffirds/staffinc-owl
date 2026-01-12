@@ -2,7 +2,7 @@ import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { Lambda } from '@aws-sdk/client-lambda';
-import { dbService } from '../../services/database';
+import { dbService } from '../services/database';
 
 const CandidateSubmitSchema = z.object({
   candidateScoresText: z.string().optional(),

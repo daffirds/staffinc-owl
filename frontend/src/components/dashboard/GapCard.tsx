@@ -12,12 +12,12 @@ interface GapCardProps {
 
 const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick }: GapCardProps) => {
   const otherRejected = totalRejected - rejected;
-  
+
   const data = [
-    { name: 'This Gap', value: rejected, color: 'hsl(var(--foreground))' },
-    { name: 'Other Reasons', value: otherRejected, color: 'hsl(var(--muted-foreground))' },
-    { name: 'Accepted', value: totalAccepted, color: 'hsl(var(--muted))' },
-  ].filter(d => d.value > 0);
+    { name: 'Rejected (this gap)', value: rejected, color: 'hsl(var(--destructive))' },
+    { name: 'Rejected (other)', value: otherRejected, color: 'hsl(var(--accent))' },
+    { name: 'Accepted', value: totalAccepted, color: 'hsl(var(--chart-3))' },
+  ].filter((d) => d.value > 0);
 
   const total = rejected + otherRejected + totalAccepted;
   const percentage = total > 0 ? Math.round((rejected / total) * 100) : 0;
@@ -25,9 +25,7 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
   return (
     <Card className="border-2 border-foreground shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-bold uppercase tracking-wide">
-          {title}
-        </CardTitle>
+        <CardTitle className="text-lg font-bold uppercase tracking-wide">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
@@ -53,30 +51,26 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
           </div>
           <div className="flex-1">
             <div className="text-3xl font-bold">{rejected}</div>
-            <p className="text-sm text-muted-foreground">
-              {percentage}% of total
-            </p>
+            <p className="text-sm text-muted-foreground">{percentage}% of total</p>
           </div>
         </div>
+
         <div className="mt-4 space-y-1 text-xs">
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 bg-foreground" />
+            <div className="h-2 w-2 rounded-full bg-destructive" />
             <span>Rejected by this gap: {rejected}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 bg-muted-foreground" />
+            <div className="h-2 w-2 rounded-full bg-accent" />
             <span>Other reasons: {otherRejected}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 bg-muted" />
+            <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-3))]" />
             <span>Accepted: {totalAccepted}</span>
           </div>
         </div>
-        <Button 
-          onClick={onReviewClick} 
-          className="mt-4 w-full border-2 border-foreground"
-          variant="outline"
-        >
+
+        <Button onClick={onReviewClick} className="mt-4 w-full border-2 border-foreground" variant="outline">
           Review Gaps
         </Button>
       </CardContent>

@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
-import { dbService } from '../../services/database';
+import { dbService } from '../services/database';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const origin = event.headers?.origin || (event.headers as any)?.Origin;
