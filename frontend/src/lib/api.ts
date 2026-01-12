@@ -166,10 +166,10 @@ export const fetchRequirements = async (clientId?: string): Promise<Requirement[
 };
 
 export const createRequirement = async (payload: {
-  title: string;
   client_id: string;
+  title: string;
+  requirements_text: string;
   documentKey?: string;
-  requirements_text?: string;
 }): Promise<Requirement> => {
   const { data } = await api.post('/requirements', payload);
   return data;

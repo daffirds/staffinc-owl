@@ -82,7 +82,7 @@ export const CreateClientDialog = ({ open, onOpenChange, onSubmit, isLoading }: 
 interface CreateRequirementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { title: string; file?: File | null; text: string }) => void;
+  onSubmit: (data: { title: string; requirements_text: string }) => void;
   isLoading?: boolean;
   clientName?: string;
 }
@@ -91,12 +91,11 @@ export const CreateRequirementDialog = ({ open, onOpenChange, onSubmit, isLoadin
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState('');
-  const [mode, setMode] = useState<'file' | 'text'>('text');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim() && (file || text.trim())) {
-      onSubmit({ title: title.trim(), file, text: text.trim() });
+      onSubmit({ title: title.trim(), requirements_text: text.trim() });
       setTitle('');
       setFile(null);
       setText('');
@@ -104,21 +103,6 @@ export const CreateRequirementDialog = ({ open, onOpenChange, onSubmit, isLoadin
   };
 
   const isValid = title.trim() && (file || text.trim());
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0] || null;
-    setFile(selectedFile);
-    if (selectedFile) {
-      setText('');
-    }
-  };
-
-  const handleTextInput = (value: string) => {
-    setText(value);
-    if (value) {
-      setFile(null);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,8 +130,13 @@ export const CreateRequirementDialog = ({ open, onOpenChange, onSubmit, isLoadin
               required
               file={file}
               text={text}
-              onFileChange={handleFileInput}
-              onTextChange={handleTextInput}
+              onFileChange={setFile}
+              onTextChange={(value) => {
+                setText(value);
+                if (value) {
+                  setFile(null);
+                }
+              }}
             />
           </div>
           <DialogFooter>

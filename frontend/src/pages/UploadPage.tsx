@@ -44,7 +44,6 @@ const UploadPage = () => {
 
   // Form state
   const [candidateName, setCandidateName] = useState('');
-  const [appliedRole, setAppliedRole] = useState('');
   const [interviewDate, setInterviewDate] = useState<Date>();
   const [finalStatus, setFinalStatus] = useState<'accepted' | 'rejected'>();
   const [selectedClient, setSelectedClient] = useState('');
@@ -91,10 +90,11 @@ const UploadPage = () => {
   });
 
   const createRequirementMutation = useMutation({
-    mutationFn: (data: { title: string; file?: File | null; text: string }) =>
+    mutationFn: (data: { title: string; requirements_text: string }) =>
       createRequirement({
-        ...data,
-        clientId: selectedClient,
+        title: data.title,
+        requirements_text: data.requirements_text,
+        client_id: selectedClient,
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['requirements'] });
@@ -121,7 +121,7 @@ const UploadPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!candidateName || !appliedRole || !interviewDate || !finalStatus) {
+    if (!candidateName || !interviewDate || !finalStatus) {
       toast({ title: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
@@ -166,7 +166,7 @@ const UploadPage = () => {
       // Process upload
       await processUpload({
         candidateName,
-        appliedRole,
+        appliedRole: requirements.find((r) => r.id === selectedRequirement)?.title ?? 'Role TBD',
         interviewDate: interviewDate.toISOString().split('T')[0],
         finalStatus,
         clientId: selectedClient,
@@ -248,18 +248,6 @@ const UploadPage = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="appliedRole" className="font-semibold uppercase">
-                  Applied Role <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="appliedRole"
-                  value={appliedRole}
-                  onChange={(e) => setAppliedRole(e.target.value)}
-                  placeholder="e.g., Senior Software Engineer"
-                  className="border border-input"
-                />
-              </div>
 
               <div className="space-y-2">
                 <Label className="font-semibold uppercase">
