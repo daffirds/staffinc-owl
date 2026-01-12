@@ -99,11 +99,13 @@ export type GapType = 'hiddenCriteria' | 'assessmentConflict' | 'scoreMismatch' 
 
 export const fetchMetricsOverview = async (filters?: {
   clientId?: string;
+  interviewerId?: string;
   startDate?: string;
   endDate?: string;
 }): Promise<MetricsOverview> => {
   const params = new URLSearchParams();
   if (filters?.clientId) params.append('clientId', filters.clientId);
+  if (filters?.interviewerId) params.append('interviewerId', filters.interviewerId);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
 
@@ -115,13 +117,14 @@ export const fetchCandidatesByMetric = async (
   metric: GapType,
   page: number = 1,
   pageSize: number = 10,
-  filters?: { clientId?: string; startDate?: string; endDate?: string }
+  filters?: { clientId?: string; interviewerId?: string; startDate?: string; endDate?: string }
 ): Promise<CandidatesResponse> => {
   const params = new URLSearchParams();
   params.append('metric', metric);
   params.append('page', page.toString());
   params.append('pageSize', pageSize.toString());
   if (filters?.clientId) params.append('clientId', filters.clientId);
+  if (filters?.interviewerId) params.append('interviewerId', filters.interviewerId);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
 
@@ -132,12 +135,13 @@ export const fetchCandidatesByMetric = async (
 export const fetchCandidates = async (
   page: number = 1,
   pageSize: number = 10,
-  filters?: { clientId?: string; startDate?: string; endDate?: string }
+  filters?: { clientId?: string; interviewerId?: string; startDate?: string; endDate?: string }
 ): Promise<CandidatesResponse> => {
   const params = new URLSearchParams();
   params.append('page', page.toString());
   params.append('pageSize', pageSize.toString());
   if (filters?.clientId) params.append('clientId', filters.clientId);
+  if (filters?.interviewerId) params.append('interviewerId', filters.interviewerId);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
 

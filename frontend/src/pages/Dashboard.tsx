@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Upload, Calendar, Building2, Check, X } from 'lucide-react';
+import { Upload, Calendar as CalendarIcon, Building2, User, Check, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -10,11 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { addDays, format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import MetricCard from '@/components/dashboard/MetricCard';
 import GapCard from '@/components/dashboard/GapCard';
 import CandidateModal from '@/components/dashboard/CandidateModal';
-import { fetchCandidates, fetchClients, fetchMetricsOverview, type Candidate, type GapType } from '@/lib/api';
+import {
+  fetchCandidates,
+  fetchClients,
+  fetchInterviewers,
+  fetchMetricsOverview,
+  type Candidate,
+  type GapType,
+} from '@/lib/api';
 
 const gapConfig: { type: GapType; title: string }[] = [
   { type: 'hiddenCriteria', title: 'Hidden Criteria' },
@@ -24,18 +39,26 @@ const gapConfig: { type: GapType; title: string }[] = [
 ];
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
   const [selectedClient, setSelectedClient] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<string>('all');
+  const [selectedInterviewer, setSelectedInterviewer] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<{ type: GapType; title: string } | null>(null);
+  const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
 
   const [candidatePage, setCandidatePage] = useState(1);
   const [candidatePageSize, setCandidatePageSize] = useState(10);
 
   const filters = {
     clientId: selectedClient !== 'all' ? selectedClient : undefined,
-    startDate: dateRange !== 'all' ? getDateRangeStart(dateRange) : undefined,
-    endDate: dateRange !== 'all' ? new Date().toISOString().split('T')[0] : undefined,
+    interviewerId: selectedInterviewer !== 'all' ? selectedInterviewer : undefined,
+    startDate: dateRange.from ? dateRange.from.toISOString().split('T')[0] : undefined,
+    endDate: dateRange.to ? dateRange.to.toISOString().split('T')[0] : undefined,
   };
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
@@ -43,14 +66,24 @@ const Dashboard = () => {
     queryFn: () => fetchMetricsOverview(filters),
   });
 
+  const { data: candidateTable, isLoading: candidatesLoading, refetch: refetchCandidates } = useQuery({
+    queryKey: ['candidate-table', filters, candidatePage, candidatePageSize],
+    queryFn: () => fetchCandidates(candidatePage, candidatePageSize, filters),
+  });
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['metrics'] });
+    queryClient.invalidateQueries({ queryKey: ['candidate-table'] });
+  };
+
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: fetchClients,
   });
 
-  const { data: candidateTable, isLoading: candidatesLoading } = useQuery({
-    queryKey: ['candidate-table', filters, candidatePage, candidatePageSize],
-    queryFn: () => fetchCandidates(candidatePage, candidatePageSize, filters),
+  const { data: interviewers = [] } = useQuery({
+    queryKey: ['interviewers'],
+    queryFn: fetchInterviewers,
   });
 
   const handleReviewGap = (gap: { type: GapType; title: string }) => {
@@ -62,13 +95,23 @@ const Dashboard = () => {
     ? Math.round((metrics.rejectedCount / metrics.totalCandidates) * 100)
     : 0;
 
+  const formatMaybeJson = (value?: string) => {
+    if (!value) return '';
+    try {
+      const parsed = JSON.parse(value);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return value;
+    }
+  };
+
   const renderGapFlag = (status: Candidate['status'], value: boolean) => {
     if (status === 'accepted') {
       return <span className="text-muted-foreground">-</span>;
     }
 
     if (value) {
-      return <Check className="mx-auto h-4 w-4 text-[hsl(var(--chart-3))]" aria-label="Yes" />;
+      return <Check className="mx-auto h-4 w-4 text-[hsl(var(--chart-2))]" aria-label="Yes" />;
     }
 
     return <X className="mx-auto h-4 w-4 text-destructive" aria-label="No" />;
@@ -77,13 +120,17 @@ const Dashboard = () => {
   const pagination = candidateTable?.pagination;
   const totalPages = pagination?.totalPages ?? 1;
 
+  const toggleCandidate = (id: string) => {
+    setExpandedCandidateId((current) => (current === id ? null : id));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b-2 border-foreground bg-background">
+      <header className="border-b border-border bg-background">
         <div className="container mx-auto flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold uppercase tracking-tight">Staffinc Owl</h1>
-          <Button asChild className="border-2 border-foreground shadow-xs">
+          <h1 className="text-2xl font-semibold uppercase tracking-tight">Staffinc Owl</h1>
+          <Button asChild className="border border-border bg-blue-600 text-white hover:bg-blue-700">
             <Link to="/upload">
               <Upload className="mr-2 h-4 w-4" />
               Upload Evaluation
@@ -94,17 +141,17 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-6 py-8">
         {/* Filters */}
-        <div className="mb-8 flex flex-wrap items-end gap-4 border-2 border-foreground bg-background p-4 shadow-xs">
+        <div className="mb-8 flex flex-wrap items-end gap-4 border border-border bg-background p-4">
           <div className="flex-1 min-w-[200px]">
-            <label className="mb-2 block text-sm font-bold uppercase tracking-wide">
+            <label className="mb-2 block text-sm font-semibold uppercase tracking-wide">
               <Building2 className="mr-1 inline h-4 w-4" />
               Client
             </label>
             <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="border-2 border-foreground">
+              <SelectTrigger className="border border-input">
                 <SelectValue placeholder="All Clients" />
               </SelectTrigger>
-              <SelectContent className="border-2 border-foreground bg-background">
+              <SelectContent className="border border-border bg-background">
                 <SelectItem value="all">All Clients</SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
@@ -116,29 +163,73 @@ const Dashboard = () => {
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="mb-2 block text-sm font-bold uppercase tracking-wide">
-              <Calendar className="mr-1 inline h-4 w-4" />
-              Date Range
+            <label className="mb-2 block text-sm font-semibold uppercase tracking-wide">
+              <User className="mr-1 inline h-4 w-4" />
+              Interviewer
             </label>
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="border-2 border-foreground">
-                <SelectValue placeholder="All Time" />
+            <Select value={selectedInterviewer} onValueChange={setSelectedInterviewer}>
+              <SelectTrigger className="border border-input">
+                <SelectValue placeholder="All Interviewers" />
               </SelectTrigger>
-              <SelectContent className="border-2 border-foreground bg-background">
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="7d">Last 7 Days</SelectItem>
-                <SelectItem value="30d">Last 30 Days</SelectItem>
-                <SelectItem value="90d">Last 90 Days</SelectItem>
+              <SelectContent className="border border-border bg-background">
+                <SelectItem value="all">All Interviewers</SelectItem>
+                {interviewers.map((interviewer) => (
+                  <SelectItem key={interviewer.id} value={interviewer.id}>
+                    {interviewer.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
+          <div className="flex-1 min-w-[200px]">
+            <label className="mb-2 block text-sm font-semibold uppercase tracking-wide">
+              <CalendarIcon className="mr-1 inline h-4 w-4" />
+              Date Range
+            </label>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border border-input w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                      </>
+                    ) : (
+                      format(dateRange.from, 'LLL dd, y')
+                    )
+                  ) : (
+                    <span>All Time</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 border border-border" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => {
+                    setDateRange(range ?? { from: undefined, to: undefined });
+                    if (range?.to) {
+                      setCalendarOpen(false);
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <Button
             variant="outline"
-            className="border-2 border-foreground"
+            className="border border-input"
             onClick={() => {
               setSelectedClient('all');
-              setDateRange('all');
+              setSelectedInterviewer('all');
+              setDateRange({ from: undefined, to: undefined });
               setCandidatePage(1);
             }}
           >
@@ -196,11 +287,19 @@ const Dashboard = () => {
         {/* Candidate Table */}
         <section className="mt-10">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+            <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold uppercase tracking-wide">Candidates</h2>
               <p className="text-sm text-muted-foreground">Recent completed evaluations</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="border border-input"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
               <span className="text-sm text-muted-foreground">Rows</span>
               <Select
                 value={candidatePageSize.toString()}
@@ -209,10 +308,10 @@ const Dashboard = () => {
                   setCandidatePage(1);
                 }}
               >
-                <SelectTrigger className="w-[90px] border-2 border-foreground">
+                <SelectTrigger className="w-[90px] border border-input">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-2 border-foreground bg-background">
+                <SelectContent className="border border-border bg-background">
                   {[5, 10, 20, 50].map((size) => (
                     <SelectItem key={size} value={size.toString()}>
                       {size}
@@ -223,7 +322,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto border-2 border-foreground bg-background shadow-xs">
+          <div className="overflow-x-auto border border-border bg-background">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-muted">
                 <tr>
@@ -235,49 +334,100 @@ const Dashboard = () => {
                   <th className="px-4 py-3 text-center font-semibold">Conflict</th>
                   <th className="px-4 py-3 text-center font-semibold">Mismatch</th>
                   <th className="px-4 py-3 text-center font-semibold">Other</th>
+                  <th className="px-2 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {candidatesLoading ? (
                   <tr>
-                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={8}>
+                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={9}>
                       Loading candidates...
                     </td>
                   </tr>
                 ) : candidateTable?.candidates?.length ? (
-                  candidateTable.candidates.map((candidate) => (
-                    <tr key={candidate.id} className="border-t-2 border-foreground/30">
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{candidate.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{candidate.clientName}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center border-2 border-foreground px-2 py-1 text-xs font-bold uppercase ${
-                            candidate.status === 'rejected'
-                              ? 'bg-foreground text-background'
-                              : 'bg-background text-foreground'
-                          }`}
+                  candidateTable.candidates.map((candidate) => {
+                    const isExpanded = expandedCandidateId === candidate.id;
+                    return (
+                      <React.Fragment key={candidate.id}>
+                        <tr
+                          className="cursor-pointer border-b border-border hover:bg-muted/50"
+                          onClick={() => toggleCandidate(candidate.id)}
                         >
-                          {candidate.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {renderGapFlag(candidate.status, candidate.hasHiddenCriteria)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {renderGapFlag(candidate.status, candidate.hasAssessmentConflict)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {renderGapFlag(candidate.status, candidate.hasScoreMismatch)}
-                      </td>
-                      <td className="px-4 py-3 text-center">{renderGapFlag(candidate.status, candidate.hasOther)}</td>
-                    </tr>
-                  ))
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">{candidate.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{candidate.clientName}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center border border-border px-2 py-1 text-xs font-semibold uppercase ${
+                                candidate.status === 'rejected'
+                                  ? 'bg-destructive text-destructive-foreground'
+                                  : 'bg-[hsl(var(--chart-2))] text-background'
+                              }`}
+                            >
+                              {candidate.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {renderGapFlag(candidate.status, candidate.hasHiddenCriteria)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {renderGapFlag(candidate.status, candidate.hasAssessmentConflict)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {renderGapFlag(candidate.status, candidate.hasScoreMismatch)}
+                          </td>
+                          <td className="px-4 py-3 text-center">{renderGapFlag(candidate.status, candidate.hasOther)}</td>
+                          <td className="px-2 py-3 text-center">
+                            {isExpanded ? (
+                              <ChevronUp className="mx-auto h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="mx-auto h-4 w-4 text-muted-foreground" />
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="border-b border-border">
+                            <td colSpan={9} className="px-4 py-4">
+                              <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4">
+                                <div>
+                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Standardized Requirements</h4>
+                                  <pre className="whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs">
+                                    {formatMaybeJson(
+                                      candidate.standardizedRequirements || candidate.requirementsText
+                                    ) || 'No requirements available'}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Internal Scores</h4>
+                                  <pre className="whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs">
+                                    {formatMaybeJson(candidate.standardizedScores || candidate.rawInternalScores) ||
+                                      'No scores available'}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Internal Notes</h4>
+                                  <pre className="whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs">
+                                    {candidate.standardizedNotes || candidate.rawInternalNotes || 'No notes available'}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Client Feedback</h4>
+                                  <pre className="whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs">
+                                    {candidate.standardizedFeedback || candidate.rawClientFeedback || 'No feedback available'}
+                                  </pre>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={8}>
+                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={9}>
                       No candidates found
                     </td>
                   </tr>
@@ -291,7 +441,7 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-2 border-foreground"
+                className="border border-input"
                 onClick={() => setCandidatePage((p) => Math.max(p - 1, 1))}
                 disabled={candidatePage === 1}
               >
@@ -303,7 +453,7 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-2 border-foreground"
+                className="border border-input"
                 onClick={() => setCandidatePage((p) => (p < totalPages ? p + 1 : p))}
                 disabled={candidatePage >= totalPages}
               >
@@ -327,23 +477,5 @@ const Dashboard = () => {
     </div>
   );
 };
-
-function getDateRangeStart(range: string): string {
-  const now = new Date();
-  switch (range) {
-    case '7d':
-      now.setDate(now.getDate() - 7);
-      break;
-    case '30d':
-      now.setDate(now.getDate() - 30);
-      break;
-    case '90d':
-      now.setDate(now.getDate() - 90);
-      break;
-    default:
-      return '';
-  }
-  return now.toISOString().split('T')[0];
-}
 
 export default Dashboard;

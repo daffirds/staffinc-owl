@@ -8,14 +8,14 @@ interface MetricCardProps {
 
 const MetricCard = ({ title, value, subtitle }: MetricCardProps) => {
   return (
-    <Card className="border-2 border-foreground shadow-sm">
+    <Card className="border border-border shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-4xl font-bold">{value}</div>
+        <div className="text-4xl font-semibold">{value}</div>
         {subtitle && (
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         )}

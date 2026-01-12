@@ -27,6 +27,13 @@ const gapExplanationKey: Record<GapType, keyof Candidate> = {
   other: 'otherExplanation',
 };
 
+const gapDescriptionMap: Record<GapType, string> = {
+  hiddenCriteria: 'The rejection reason was not mentioned in client requirements.',
+  assessmentConflict: 'Interviewer notes or scores conflict with the final decision.',
+  scoreMismatch: 'Scores don\'t align with the accept/reject outcome.',
+  other: 'Rejected without any of the flagged gap categories.',
+};
+
 const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: CandidateModalProps) => {
   const [page, setPage] = useState(1);
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
@@ -104,12 +111,12 @@ const CandidateModal = ({ open, onOpenChange, gapType, gapTitle, filters }: Cand
             <AlertCircle className="h-5 w-5" />
             <span>Failed to load candidates</span>
           </div>
-        ) : data ? (
+         ) : data ? (
           <>
-            {/* AI Summary */}
+            {/* Metric Description */}
             <div className="border-2 border-foreground bg-muted p-4">
-              <h4 className="mb-2 font-bold uppercase tracking-wide">AI Analysis Summary</h4>
-              <p className="text-sm leading-relaxed">{data.aiSummary || '—'}</p>
+              <h4 className="mb-2 font-bold uppercase tracking-wide">Metric Description</h4>
+              <p className="text-sm leading-relaxed">{gapDescriptionMap[gapType]}</p>
             </div>
 
             {/* Candidate List */}

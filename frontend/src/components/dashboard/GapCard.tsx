@@ -15,17 +15,17 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
 
   const data = [
     { name: 'Rejected (this gap)', value: rejected, color: 'hsl(var(--destructive))' },
-    { name: 'Rejected (other)', value: otherRejected, color: 'hsl(var(--accent))' },
-    { name: 'Accepted', value: totalAccepted, color: 'hsl(var(--chart-3))' },
+    { name: 'Rejected (other)', value: otherRejected, color: 'hsl(var(--chart-4))' },
+    { name: 'Accepted', value: totalAccepted, color: 'hsl(var(--chart-2))' },
   ].filter((d) => d.value > 0);
 
   const total = rejected + otherRejected + totalAccepted;
   const percentage = total > 0 ? Math.round((rejected / total) * 100) : 0;
 
   return (
-    <Card className="border-2 border-foreground shadow-sm">
+    <Card className="border border-border shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-bold uppercase tracking-wide">{title}</CardTitle>
+        <CardTitle className="text-base font-semibold uppercase tracking-wide">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
@@ -50,7 +50,7 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
             </ResponsiveContainer>
           </div>
           <div className="flex-1">
-            <div className="text-3xl font-bold">{rejected}</div>
+            <div className="text-3xl font-semibold">{rejected}</div>
             <p className="text-sm text-muted-foreground">{percentage}% of total</p>
           </div>
         </div>
@@ -61,16 +61,16 @@ const GapCard = ({ title, rejected, totalRejected, totalAccepted, onReviewClick 
             <span>Rejected by this gap: {rejected}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-accent" />
+            <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-4))]" />
             <span>Other reasons: {otherRejected}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-3))]" />
+            <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" />
             <span>Accepted: {totalAccepted}</span>
           </div>
         </div>
 
-        <Button onClick={onReviewClick} className="mt-4 w-full border-2 border-foreground" variant="outline">
+        <Button onClick={onReviewClick} className="mt-4 w-full border border-border" variant="outline">
           Review Gaps
         </Button>
       </CardContent>
