@@ -107,9 +107,9 @@ const UploadPage = () => {
       }
       return createRequirement({
         title: data.title,
-        clientId: selectedClient,
+        client_id: selectedClient,
         documentKey,
-        documentText: data.text || undefined,
+        requirements_text: data.text || undefined,
       });
     },
     onSuccess: (data) => {
