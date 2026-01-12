@@ -361,8 +361,9 @@ const UploadPage = () => {
                 />
               </div>
             </div>
+          </div>
 
-            {/* Evaluation Data Section */}
+          {/* Evaluation Data Section */}
             <div className="mt-8 border border-border bg-background p-6">
               <h2 className="mb-6 text-lg font-semibold uppercase tracking-wide">
                 Evaluation Data
@@ -398,26 +399,28 @@ const UploadPage = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="mt-8 flex justify-end">
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting}
-                className="border border-input px-8 shadow-sm bg-blue-600 text-white hover:bg-blue-700"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  'Process & Analyze'
-                )}
-              </Button>
-            </div>
+          {/* Submit Button */}
+          <div className="mt-8 flex justify-end">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isSubmitting}
+              className="border border-input px-8 shadow-sm bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Process & Analyze'
+              )}
+            </Button>
           </div>
         </form>
+
+
+
 
         {/* Create Entity Dialogs */}
         <CreateClientDialog
