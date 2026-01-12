@@ -1,73 +1,94 @@
-# Welcome to your Lovable project
+# Staffinc Owl Frontend
 
-## Project info
+React frontend for Staffinc Owl - AI-powered candidate analysis platform.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Vite** - Build tool and dev server
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **shadcn/ui** - Component library
+- **Tailwind CSS** - Styling
+- **React Router** - Client-side routing
+- **TanStack Query** - Data fetching and caching
+- **Recharts** - Data visualization
+- **Zod** - Schema validation
+- **Axios** - HTTP client
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
+- Node.js 20.x or later
+- npm or yarn
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Installation
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Install dependencies:
+```bash
+npm install
+```
 
-**Use your preferred IDE**
+2. Set up environment variables:
+Create a `.env` file in the root directory and add:
+```bash
+VITE_API_URL=https://your-api-gateway-url
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Structure
 
-**Use GitHub Codespaces**
+```
+frontend/
+├── src/
+│   ├── components/    # Reusable UI components
+│   ├── lib/           # Utilities and helpers
+│   ├── pages/         # Page components
+│   └── main.tsx       # Application entry point
+├── public/            # Static assets
+└── package.json       # Dependencies
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Available Scripts
 
-## What technologies are used for this project?
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
 
-This project is built with:
+## Features
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Candidate Management** - Upload and track candidates
+- **AI Analysis** - View AI-powered gap analysis
+- **Dashboard** - Metrics and overview
+- **Setup** - Configure clients, interviewers, and requirements
 
-## How can I deploy this project?
+## API Integration
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The frontend communicates with the AWS Lambda backend via REST API. API endpoints are configured through environment variables.
 
-## Can I connect a custom domain to my Lovable project?
+## Building for Production
 
-Yes, you can!
+```bash
+npm run build
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The build output will be in the `dist/` directory.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+The frontend can be deployed to:
+- AWS S3 + CloudFront
+- Vercel
+- Netlify
+- Any static hosting service
+
+## Styling
+
+This project uses Tailwind CSS for styling with shadcn/ui components. Customize the theme in `tailwind.config.js` and CSS variables in `src/index.css`.

@@ -1,81 +1,84 @@
-# Staffinc Owl - SAM Implementation
+# Staffinc Owl Lambda - SAM Implementation
 
-This is a SAM-based implementation of Staffinc Owl with a 2-Lambda architecture.
+AWS Lambda backend for Staffinc Owl with AI-powered candidate analysis.
 
 ## Architecture
 
-### Public Lambda
-- **Purpose**: Handle user-facing operations, OpenAI API calls
-- **Access**: No authentication required
+### AI Function
+- **Purpose**: AI processing and OpenAI API integration
+- **Access**: Public endpoints
 - **Network**: Outside VPC (internet access for OpenAI)
-- **Services**: OpenAI API, S3 presigned URLs
-- **Endpoints**:
-  - `GET /` - Health check
-  - `POST /upload/presigned` - Generate S3 upload URL
-  - `POST /upload/process` - Submit candidate for processing
-  - `GET /upload/process/status/{id}` - Get candidate status
-  - `POST /ai/analyze` - Perform full gap analysis (called by Private Lambda)
-  - `POST /ai/normalize-notes` - Normalize interview notes
-  - `POST /ai/normalize-scores` - Extract and normalize scores
-  - `POST /ai/normalize-feedback` - Normalize client feedback
-  - `POST /ai/standardize-requirements` - Standardize job requirements
+- **Runtime**: Node.js 20.x
+- **Timeout**: 600 seconds
+- **Memory**: 512 MB
 
-### Private Lambda
-- **Purpose**: Backend processing, database operations
-- **Access**: API Key authentication required
-- **Network**: Inside VPC (for RDS database access)
-- **Services**: S3, RDS PostgreSQL
-- **Endpoints**:
-  - `GET /setup/clients` - List clients
-  - `POST /setup/clients` - Create client
-  - `GET /setup/interviewers` - List interviewers
-  - `POST /setup/interviewers` - Create interviewer
-  - `GET /setup/requirements` - List requirements
-  - `POST /setup/requirements` - Create requirement (calls /ai/standardize-requirements)
-  - `GET /metrics/overview` - Get metrics overview
-  - `GET /metrics/candidates` - List candidates
-  - `POST /internal/process` - Process candidate (calls /ai/analyze)
-  - `GET /admin/db` - Execute DB queries (requires ADMIN_KEY)
-  - `GET /admin/cleanup-stuck` - Reset stuck candidates (requires ADMIN_KEY)
+### Private Function
+- **Purpose**: Database operations and backend processing
+- **Access**: API endpoints within VPC
+- **Network**: Inside VPC (RDS database access)
+- **Runtime**: Node.js 20.x
+- **Timeout**: 900 seconds
+- **Memory**: 512 MB
 
 ## Directory Structure
 
 ```
 backend/lambda/
 ├── src/
-│   ├── public/
-│   │   ├── index.ts              # Public Lambda entry point
-│   │   └── handlers/
-│   │       ├── health.ts
-│   │       ├── get-presigned-url.ts
-│   │       ├── process-candidate.ts
-│   │       ├── status.ts
-│   │       ├── ai-analyze.ts                  # AI gap analysis endpoint
-│   │       ├── ai-normalize-notes.ts          # AI notes normalization
-│   │       ├── ai-normalize-scores.ts         # AI scores extraction
-│   │       ├── ai-normalize-feedback.ts       # AI feedback normalization
-│   │       └── ai-standardize-requirements.ts # AI requirements standardization
+│   ├── ai/
+│   │   └── index.ts              # AI Lambda entry point
 │   ├── private/
-│   │   ├── index.ts              # Private Lambda entry point
-│   │   └── handlers/
-│   │       ├── setup.ts
-│   │       ├── metrics.ts
-│   │       ├── admin.ts
-│   │       └── internal-process.ts
+│   │   └── index.ts              # Private Lambda entry point
+│   ├── handlers/
+│   │   ├── health.ts
+│   │   ├── status.ts
+│   │   ├── process-candidate.ts
+│   │   ├── get-presigned-url.ts
+│   │   ├── internal-process.ts
+│   │   ├── admin.ts
+│   │   ├── setup.ts
+│   │   ├── metrics.ts
+│   │   └── db-test.ts
 │   ├── services/
-│   │   ├── aws.service.ts         # S3 operations
-│   │   ├── database.ts            # PostgreSQL operations
-│   │   ├── llm.service.ts         # OpenAI integration (GPT-4o-mini)
-│   │   └── http.service.ts        # HTTP client for API Gateway calls
-│   ├── types/
-│   │   └── index.ts               # TypeScript types
-│   └── shared/
+│   │   ├── aws.service.ts        # S3 operations
+│   │   ├── database.ts           # PostgreSQL operations
+│   │   ├── llm.service.ts        # OpenAI integration
+│   │   └── http.service.ts       # HTTP client
+│   └── types/
+│       └── index.ts              # TypeScript types
 ├── template.yaml                  # SAM template
 ├── samconfig.toml                 # SAM configuration
 ├── tsconfig.json                  # TypeScript config
 ├── package.json                   # Dependencies
 └── .env.example                   # Environment variables template
 ```
+
+## API Endpoints
+
+### AI Function Endpoints
+- `GET /` - Health check
+- `POST /upload/presigned` - Generate S3 upload URL
+- `POST /ai/analyze` - Perform full gap analysis
+- `POST /ai/normalize-notes` - Normalize interview notes
+- `POST /ai/normalize-scores` - Extract and normalize scores
+- `POST /ai/normalize-feedback` - Normalize client feedback
+- `POST /ai/standardize-requirements` - Standardize job requirements
+
+### Private Function Endpoints
+- `POST /upload/process` - Submit candidate for processing
+- `GET /upload/process/status/{id}` - Get candidate status
+- `GET /clients` - List clients
+- `POST /clients` - Create client
+- `GET /interviewers` - List interviewers
+- `POST /interviewers` - Create interviewer
+- `GET /requirements` - List requirements
+- `POST /requirements` - Create requirement
+- `GET /metrics/overview` - Get metrics overview
+- `GET /metrics/candidates` - List candidates
+- `POST /internal/process` - Process candidate (internal)
+- `GET /admin/db` - Execute DB queries (requires ADMIN_KEY)
+- `GET /admin/cleanup-stuck` - Reset stuck candidates (requires ADMIN_KEY)
+- `GET /db-test` - Database connection test
 
 ## Setup
 
@@ -109,7 +112,6 @@ npm run build
 ### Deploy
 
 Using SAM CLI:
-
 ```bash
 sam build
 sam deploy --guided
@@ -129,7 +131,7 @@ sam local start-api
 
 Invoke a specific function locally:
 ```bash
-sam local invoke PublicFunction --event events/event.json
+sam local invoke AIFunction --event events/event.json
 ```
 
 ## Configuration
@@ -141,58 +143,42 @@ sam local invoke PublicFunction --event events/event.json
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `AWS_DEFAULT_REGION` | AWS region | Yes |
 | `AWS_S3_BUCKET` | S3 bucket name | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for GPT-4o-mini | Yes |
+| `OPENAI_API_KEY` | OpenAI API key | Yes |
 | `ADMIN_KEY` | Admin key for admin operations | Yes |
-| `PRIVATE_API_URL` | Private API Gateway URL | Yes |
-| `PRIVATE_API_KEY` | API key for private API access | Yes |
-
-### Lambda Configuration
-
-**PublicLambda:**
-- **Runtime**: nodejs20.x
-- **Timeout**: 600 seconds (10 minutes)
-- **Memory**: 512 MB
-- **Architecture**: x86_64
-- **Network**: Outside VPC (internet access for OpenAI)
-
-**PrivateFunction:**
-- **Runtime**: nodejs20.x
-- **Timeout**: 900 seconds (15 minutes)
-- **Memory**: 512 MB
-- **Architecture**: x86_64
-- **Network**: Inside VPC (for RDS access)
+| `API_GATEWAY_ID` | API Gateway ID for internal calls | Yes |
+| `NODE_TLS_REJECT_UNAUTHORIZED` | SSL verification (set to '0' for dev) | Yes |
 
 ## Testing
 
 ### Health Check
 ```bash
-curl https://public-api-url/
+curl https://api-url/
 ```
 
 ### Get Presigned URL
 ```bash
-curl -X POST https://public-api-url/upload/presigned \
+curl -X POST https://api-url/upload/presigned \
   -H "Content-Type: application/json" \
   -d '{"fileName":"resume.pdf","contentType":"application/pdf"}'
 ```
 
 ### Submit Candidate
 ```bash
-curl -X POST https://public-api-url/upload/process \
+curl -X POST https://api-url/upload/process \
   -H "Content-Type: application/json" \
   -d '{"s3Key":"uploads/uuid/resume.pdf","fileName":"resume.pdf"}'
 ```
 
 ### Get Candidate Status
 ```bash
-curl https://public-api-url/upload/process/status/{candidateId}
+curl https://api-url/upload/process/status/{candidateId}
 ```
 
 ## Cleanup
 
 To delete the stack:
 ```bash
-aws cloudformation delete-stack --stack-name staffinc-owl-lambda
+aws cloudformation delete-stack --stack-name staffinc-owl
 ```
 
 ## Resources

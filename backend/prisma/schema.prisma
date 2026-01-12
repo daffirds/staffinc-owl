@@ -1,7 +1,5 @@
-// https://www.prisma.io/docs/orm/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -26,9 +24,8 @@ model ClientRequirement {
   rawContent               String?     @map("raw_content")
   standardizedRequirements String?     @map("standardized_requirements")
   createdAt                DateTime    @default(now()) @map("created_at")
-  
-  client     Client      @relation(fields: [clientId], references: [id])
-  candidates Candidate[]
+  candidates               Candidate[]
+  client                   Client      @relation(fields: [clientId], references: [id])
 
   @@map("client_requirements")
 }
@@ -43,42 +40,36 @@ model Interviewer {
 }
 
 model Candidate {
-  id                            String    @id @default(uuid()) @db.Uuid
-  clientRequirementId           String    @map("client_requirement_id") @db.Uuid
-  interviewerId                 String?   @map("interviewer_id") @db.Uuid
-  candidateName                 String?   @map("candidate_name")
+  id                            String             @id @default(uuid()) @db.Uuid
+  clientRequirementId           String?            @map("client_requirement_id") @db.Uuid
+  interviewerId                 String?            @map("interviewer_id") @db.Uuid
+  candidateName                 String?            @map("candidate_name")
   role                          String?
-  interviewDate                 DateTime? @map("interview_date")
-  
-  // Raw inputs
-  rawInternalNotes              String?   @map("raw_internal_notes")
-  rawInternalScores             String?   @map("raw_internal_scores")
-  rawClientFeedback             String?   @map("raw_client_feedback")
-  
-  // Processed data
-  standardizedInternalNotes     String?   @map("standardized_internal_notes")
-  standardizedScores            String?   @map("standardized_scores")
-  avgInternalScore              Decimal?  @map("avg_internal_score") @db.Decimal(4, 2)
-  standardizedClientFeedback    String?   @map("standardized_client_feedback")
-  
-  isAccepted                    Boolean?  @map("is_accepted")
-  
-  // Gap Metrics
-  hasHiddenCriteria             Boolean   @default(false) @map("has_hidden_criteria")
-  hasAssessmentConflict         Boolean   @default(false) @map("has_assessment_conflict")
-  hasCalibrationGap             Boolean   @default(false) @map("has_calibration_gap")
-  hasScoreMismatch              Boolean   @default(false) @map("has_score_mismatch")
-  
-  hiddenCriteriaExplanation     String?   @map("hidden_criteria_explanation")
-  assessmentConflictExplanation String?   @map("assessment_conflict_explanation")
-  calibrationGapExplanation     String?   @map("calibration_gap_explanation")
-  
-  createdAt                     DateTime  @default(now()) @map("created_at")
+  interviewDate                 DateTime?          @map("interview_date")
+  rawInternalNotes              String?            @map("raw_internal_notes")
+  rawInternalScores             String?            @map("raw_internal_scores")
+  rawClientFeedback             String?            @map("raw_client_feedback")
+  standardizedInternalNotes     String?            @map("standardized_internal_notes")
+  standardizedScores            String?            @map("standardized_scores")
+  avgInternalScore              Decimal?           @map("avg_internal_score") @db.Decimal(4, 2)
+  standardizedClientFeedback    String?            @map("standardized_client_feedback")
+  isAccepted                    Boolean?           @map("is_accepted")
+  hasHiddenCriteria             Boolean            @default(false) @map("has_hidden_criteria")
+  hasAssessmentConflict         Boolean            @default(false) @map("has_assessment_conflict")
+  hasScoreMismatch              Boolean            @default(false) @map("has_score_mismatch")
+  hiddenCriteriaExplanation     String?            @map("hidden_criteria_explanation")
+  assessmentConflictExplanation String?            @map("assessment_conflict_explanation")
+  createdAt                     DateTime           @default(now()) @map("created_at")
+  status                        String?            @default("processing") @db.VarChar(50)
+  processing_started_at         DateTime?          @default(now()) @db.Timestamp(6)
+  status_updated_at             DateTime?          @default(now()) @db.Timestamp(6)
+  processing_error              String?
+  requirement                   ClientRequirement? @relation(fields: [clientRequirementId], references: [id], onDelete: Restrict)
+  interviewer                   Interviewer?       @relation(fields: [interviewerId], references: [id])
+  documents                     Document[]
 
-  requirement ClientRequirement @relation(fields: [clientRequirementId], references: [id])
-  interviewer Interviewer?      @relation(fields: [interviewerId], references: [id])
-  documents   Document[]
-
+  @@index([id], map: "idx_candidates_id")
+  @@index([status, status_updated_at], map: "idx_candidates_status")
   @@map("candidates")
 }
 
@@ -91,8 +82,7 @@ model Document {
   contentType      String?   @map("content_type")
   extractedText    String?   @map("extracted_text")
   uploadedAt       DateTime  @default(now()) @map("uploaded_at")
-  
-  candidate Candidate @relation(fields: [candidateId], references: [id])
+  candidate        Candidate @relation(fields: [candidateId], references: [id])
 
   @@map("documents")
 }
