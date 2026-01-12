@@ -84,6 +84,10 @@ class DatabaseService {
   }
 
   async createCandidate(data: {
+    candidate_name?: string;
+    role?: string;
+    interview_date?: string;
+    is_accepted?: boolean;
     s3_key?: string;
     file_name?: string;
     client_id?: string;
@@ -93,12 +97,49 @@ class DatabaseService {
     raw_internal_scores?: string;
     raw_client_feedback?: string;
   }): Promise<any> {
-    const { s3_key, file_name, client_id, interviewer_id, requirement_id, raw_internal_notes, raw_internal_scores, raw_client_feedback } = data;
+    const {
+      candidate_name,
+      role,
+      interview_date,
+      is_accepted,
+      s3_key,
+      file_name,
+      client_id,
+      interviewer_id,
+      requirement_id,
+      raw_internal_notes,
+      raw_internal_scores,
+      raw_client_feedback,
+    } = data;
     const result = await this.query(
-      `INSERT INTO candidates (id, client_requirement_id, interviewer_id, raw_internal_notes, raw_internal_scores, raw_client_feedback, status, processing_started_at, status_updated_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'processing', NOW(), NOW())
-        RETURNING *`,
-      [requirement_id || null, interviewer_id || null, raw_internal_notes || null, raw_internal_scores || null, raw_client_feedback || null]
+      `INSERT INTO candidates (
+        id,
+        candidate_name,
+        role,
+        interview_date,
+        is_accepted,
+        client_requirement_id,
+        interviewer_id,
+        raw_internal_notes,
+        raw_internal_scores,
+        raw_client_feedback,
+        status,
+        processing_started_at,
+        status_updated_at
+      )
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, 'processing', NOW(), NOW())
+      RETURNING *`,
+      [
+        candidate_name || null,
+        role || null,
+        interview_date || null,
+        is_accepted || null,
+        requirement_id || null,
+        interviewer_id || null,
+        raw_internal_notes || null,
+        raw_internal_scores || null,
+        raw_client_feedback || null,
+      ]
     );
     return result.rows[0];
   }

@@ -5,6 +5,10 @@ import { Lambda } from '@aws-sdk/client-lambda';
 import { dbService } from '../services/database';
 
 const CandidateSubmitSchema = z.object({
+  candidateName: z.string().min(1),
+  appliedRole: z.string().min(1),
+  interviewDate: z.string().min(1),
+  finalStatus: z.enum(['accepted', 'rejected']),
   candidateScoresText: z.string().optional(),
   clientFeedbackText: z.string().optional(),
   internalNotesText: z.string().optional(),
@@ -48,6 +52,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const candidateData = parsed.data;
 
     const candidate = await dbService.createCandidate({
+      candidate_name: candidateData.candidateName,
+      role: candidateData.appliedRole,
+      interview_date: candidateData.interviewDate,
+      is_accepted: candidateData.finalStatus === 'accepted',
       client_id: candidateData.clientId,
       interviewer_id: candidateData.interviewerId,
       requirement_id: candidateData.requirementId,
